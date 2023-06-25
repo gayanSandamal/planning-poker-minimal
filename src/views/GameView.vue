@@ -167,7 +167,6 @@ const reset = () => {
 const modal = ref();
 let justStarted = false;
 const continueToGame = () => {
-  debugger;
   if (teamMembers.value.length > 0) user.value.admin = false;
   const users: Member[] = [...teamMembers.value, ...[user.value]];
   gamesHttp.setDoc(route.params.id, { users: users });

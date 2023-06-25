@@ -1,7 +1,7 @@
 <template>
-  <div class="container">
+  <div class="app container pt-5">
     <div class="row justify-content-md-center">
-      <div class="col-4">
+      <div class="col-md-4">
         <div class="row">
           <div class="col-12">
             <p class="fw-semibold mb-10">
@@ -9,7 +9,7 @@
             </p>
           </div>
           <div class="col-12 mb-4">
-            <label for="name" class="form-label">Game's name</label>
+            <label for="name" class="form-label">Name of the Game</label>
             <input
               id="name"
               class="form-control"
@@ -37,7 +37,7 @@
           <div class="col-12">
             <div class="d-grid gap-2">
               <button
-                class="btn btn-primary"
+                class="btn btn-primary btn-lg"
                 @click="onSubmit"
                 :disabled="
                   form.name.trim() === '' || form.votingSystem.id === 999

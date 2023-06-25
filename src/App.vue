@@ -30,7 +30,7 @@
   <footer class="footer">
     <div class="container">
       <p class="text-center">
-        &copy; {{ year }} Planning Poker Minimal. All rights reserved. v1.0
+        &copy; {{ year }} Planning Poker Minimal. All rights reserved. v1.01
       </p>
     </div>
   </footer>

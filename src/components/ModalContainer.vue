@@ -36,7 +36,12 @@
             >
               {{ cancelLabel }}
             </button>
-            <button type="button" class="btn btn-primary" @click="submit()">
+            <button
+              type="button"
+              class="btn btn-primary"
+              :disabled="disableSubmit"
+              @click="submit()"
+            >
               {{ okLabel }}
             </button>
           </div>
@@ -52,7 +57,7 @@ import { defineProps, defineEmits, defineExpose, PropType, ref } from "vue";
 const modalRef = ref();
 const show = ref<boolean>(false);
 const toggle = () => (show.value = !show.value);
-defineProps({
+const props = defineProps({
   title: {
     type: String as PropType<string>,
   },
@@ -63,6 +68,10 @@ defineProps({
   okLabel: {
     type: String as PropType<string>,
     default: "Submit",
+  },
+  disableSubmit: {
+    type: Boolean,
+    default: false,
   },
   onlySubmit: {
     type: Boolean,
@@ -79,6 +88,7 @@ const cancel = () => {
   emit("cancel");
 };
 const submit = () => {
+  if (props.disableSubmit) return true;
   emit("submit");
 };
 const modalError = ref<boolean>(false);

@@ -42,6 +42,7 @@
     okLabel="Continue to Game"
     :allowClose="false"
     :onlySubmit="true"
+    :disableSubmit="user.displayName.trim() === ''"
     @submit="continueToGame"
   >
     <div class="row">

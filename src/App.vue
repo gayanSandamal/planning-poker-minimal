@@ -16,6 +16,13 @@
           </div>
         </div>
         <div class="col-md-9 col-md-9 d-flex justify-content-end">
+          <button
+            v-if="routeName === 'game'"
+            class="btn btn-outline-primary text-nowrap"
+            @click="toggleInviteTeamModal"
+          >
+            Invite players
+          </button>
           <router-link
             v-if="!['game', 'newgame'].includes(routeName)"
             class="btn btn-lg btn-success text-nowrap"
@@ -39,11 +46,19 @@
 <script lang="ts" setup>
 import { computed } from "vue";
 import { useRoute } from "vue-router";
+import { useStore } from "vuex";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const route: any = useRoute();
+const store = useStore();
+
 const routeName = computed(() => route.name);
+const showInviteModal = computed(() => store.getters["getInviteModalState"]);
 const year = new Date().getFullYear();
+
+const toggleInviteTeamModal = () => {
+  store.dispatch("setInviteModalState", !showInviteModal.value);
+};
 </script>
 
 <style lang="scss">

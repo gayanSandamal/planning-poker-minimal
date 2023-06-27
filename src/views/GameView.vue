@@ -74,6 +74,31 @@
       </div>
     </ModalContainer>
   </Teleport>
+  <Teleport to="body">
+    <ModalContainer
+      ref="inviteTeamModal"
+      title="Invite players"
+      okLabel="Copy invitation link"
+      :allowClose="false"
+      :onlySubmit="true"
+      @submit="copyGameUrl"
+    >
+      <div class="row">
+        <div class="col-12 mb-4">
+          <label for="displayName" class="form-label">URL of the game</label>
+          <input
+            id="displayName"
+            class="form-control"
+            type="text"
+            autofocus
+            readonly
+            placeholder="Display name"
+            :value="currentUrl"
+          />
+        </div>
+      </div>
+    </ModalContainer>
+  </Teleport>
 </template>
 
 <script lang="ts" setup>
@@ -87,6 +112,8 @@ import { doc, onSnapshot } from "firebase/firestore";
 import ModalContainer from "@/components/ModalContainer.vue";
 import { nanoid } from "nanoid";
 import { useStore } from "vuex";
+import { toast } from "vue3-toastify";
+import "vue3-toastify/dist/index.css";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const route: any = useRoute();
@@ -106,8 +133,13 @@ const userId = computed(() => store.getters["getUserId"]);
 const gameData = computed(() => store.getters["getGameData"]);
 const teamMembers = computed(() => store.getters["getTeamMembers"]);
 const averageAgreement = computed(() => store.getters["getAverageAgreement"]);
+const showInviteModal = computed(() => store.getters["getInviteModalState"]);
+
+const currentUrl = computed(() => window.location.href);
 
 const currentTeamMember = ref<Member | undefined>();
+const modal = ref();
+const inviteTeamModal = ref();
 
 const cards = computed((): Card[] => {
   return (
@@ -142,7 +174,6 @@ const reset = () => {
   });
 };
 
-const modal = ref();
 let justStarted = false;
 const continueToGame = () => {
   if (teamMembers.value.length > 0) user.value.admin = false;
@@ -151,6 +182,14 @@ const continueToGame = () => {
   store.dispatch("setUserId", user.value.id);
   justStarted = true;
   if (modal.value) modal.value.toggle();
+};
+
+const copyGameUrl = () => {
+  navigator.clipboard.writeText(currentUrl.value);
+  store.dispatch("setInviteModalState", false);
+  toast.success("Copied to clipboard", {
+    autoClose: 1000,
+  });
 };
 
 const setNewUserModalState = () => {
@@ -172,6 +211,16 @@ watch(
   () => gameData.value,
   () => {
     setNewUserModalState();
+  },
+  {
+    deep: true,
+  }
+);
+
+watch(
+  () => showInviteModal.value,
+  (value: boolean) => {
+    inviteTeamModal.value.show = value;
   },
   {
     deep: true,

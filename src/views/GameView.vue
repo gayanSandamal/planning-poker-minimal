@@ -36,46 +36,48 @@
       </div>
     </div>
   </div>
-  <ModalContainer
-    ref="modal"
-    title="Choose your display name"
-    okLabel="Continue to Game"
-    :allowClose="false"
-    :onlySubmit="true"
-    :disableSubmit="user.displayName.trim() === ''"
-    @submit="continueToGame"
-  >
-    <div class="row">
-      <div class="col-12 mb-4">
-        <label for="displayName" class="form-label">Your display name</label>
-        <input
-          id="displayName"
-          class="form-control"
-          type="text"
-          autofocus
-          placeholder="Display name"
-          v-model="user.displayName"
-        />
-      </div>
-      <div class="col-12 mb-4">
-        <div class="form-check">
+  <Teleport to="body">
+    <ModalContainer
+      ref="modal"
+      title="Choose your display name"
+      okLabel="Continue to Game"
+      :allowClose="false"
+      :onlySubmit="true"
+      :disableSubmit="user.displayName.trim() === ''"
+      @submit="continueToGame"
+    >
+      <div class="row">
+        <div class="col-12 mb-4">
+          <label for="displayName" class="form-label">Your display name</label>
           <input
-            class="form-check-input"
-            type="checkbox"
-            v-model="user.joinAsSpectator"
-            id="joinAsSpectator"
+            id="displayName"
+            class="form-control"
+            type="text"
+            autofocus
+            placeholder="Display name"
+            v-model="user.displayName"
           />
-          <label class="form-check-label" for="joinAsSpectator">
-            Join as spectator
-          </label>
+        </div>
+        <div class="col-12 mb-4">
+          <div class="form-check">
+            <input
+              class="form-check-input"
+              type="checkbox"
+              v-model="user.joinAsSpectator"
+              id="joinAsSpectator"
+            />
+            <label class="form-check-label" for="joinAsSpectator">
+              Join as spectator
+            </label>
+          </div>
         </div>
       </div>
-    </div>
-  </ModalContainer>
+    </ModalContainer>
+  </Teleport>
 </template>
 
 <script lang="ts" setup>
-import { ref, computed, onMounted } from "vue";
+import { ref, computed, watch } from "vue";
 import { Card, Game, Member } from "@/interfaces/types";
 import CardList from "@/components/CardList.vue";
 import PockerTable from "./../components/PockerTable.vue";
@@ -84,10 +86,11 @@ import { db, Base, GAME_COLLECTION } from "@/firebase/fb.api";
 import { doc, onSnapshot } from "firebase/firestore";
 import ModalContainer from "@/components/ModalContainer.vue";
 import { nanoid } from "nanoid";
-import Cookies from "js-cookie";
+import { useStore } from "vuex";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const route: any = useRoute();
+const store = useStore();
 
 const gamesHttp = new Base(GAME_COLLECTION);
 
@@ -99,29 +102,10 @@ const user = ref<Member>({
   vote: "",
 });
 
-const teamMembers = computed((): Member[] => {
-  const users =
-    gameData.value?.users && Array.isArray(gameData.value?.users)
-      ? gameData.value?.users
-      : [];
-  return users?.map((user: Member) => {
-    return {
-      id: user.id,
-      displayName: user.displayName,
-      joinAsSpectator: user.joinAsSpectator,
-      admin: user.admin,
-      vote: user.vote ?? "",
-    };
-  });
-});
-
-const averageAgreement = computed(
-  () =>
-    teamMembers.value.reduce((total, next) => total + Number(next.vote), 0) /
-    teamMembers.value.filter(
-      (teamMember: Member) => !teamMember.joinAsSpectator
-    ).length
-);
+const userId = computed(() => store.getters["getUserId"]);
+const gameData = computed(() => store.getters["getGameData"]);
+const teamMembers = computed(() => store.getters["getTeamMembers"]);
+const averageAgreement = computed(() => store.getters["getAverageAgreement"]);
 
 const currentTeamMember = ref<Member | undefined>();
 
@@ -151,14 +135,7 @@ const reveal = () => {
 };
 
 const reset = () => {
-  if (gameData.value) {
-    gameData.value.users = gameData.value.users.map((user: Member) => {
-      return {
-        ...user,
-        vote: "",
-      };
-    });
-  }
+  store.dispatch("resetVotes", route.params.id);
   gamesHttp.setDoc(route.params.id, {
     reveal: false,
     users: teamMembers.value,
@@ -171,28 +148,33 @@ const continueToGame = () => {
   if (teamMembers.value.length > 0) user.value.admin = false;
   const users: Member[] = [...teamMembers.value, ...[user.value]];
   gamesHttp.setDoc(route.params.id, { users: users });
-  Cookies.set("userId", user.value.id, { expires: 7 });
+  store.dispatch("setUserId", user.value.id);
   justStarted = true;
   if (modal.value) modal.value.toggle();
 };
 
-const gameData = ref<Game>();
-const getGameData = () => {
-  onSnapshot(doc(db, GAME_COLLECTION, route.params.id), (doc) => {
-    gameData.value = doc.data() as Game;
-    const userId = Cookies.get("userId");
-    currentTeamMember.value = teamMembers.value.find(
-      (teamMember: Member) => teamMember.id === userId
-    );
-    if (currentTeamMember.value || justStarted) {
-      modal.value.show = false;
-    } else {
-      modal.value.show = true;
-    }
-  });
+const setNewUserModalState = () => {
+  currentTeamMember.value = teamMembers.value.find(
+    (teamMember: Member) => teamMember.id === userId.value
+  );
+  if (currentTeamMember.value || justStarted) {
+    modal.value.show = false;
+  } else {
+    modal.value.show = true;
+  }
 };
 
-onMounted(() => {
-  getGameData();
+onSnapshot(doc(db, GAME_COLLECTION, route.params.id), (doc) => {
+  store.dispatch("setGameData", doc.data() as Game);
 });
+
+watch(
+  () => gameData.value,
+  () => {
+    setNewUserModalState();
+  },
+  {
+    deep: true,
+  }
+);
 </script>

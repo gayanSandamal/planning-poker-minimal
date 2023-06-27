@@ -6,6 +6,7 @@ export default createStore({
   state: {
     userId: Cookies.get("userId") || null,
     gameData: undefined as Game | undefined,
+    showInviteModal: false,
   },
   getters: {
     getUserId(state) {
@@ -41,6 +42,9 @@ export default createStore({
         ) ?? [];
       return totalVotes / players.length;
     },
+    getInviteModalState(state) {
+      return state.showInviteModal;
+    },
   },
   mutations: {
     mutateGameData(state, data): void {
@@ -59,6 +63,9 @@ export default createStore({
     mutateUserId(state, data): void {
       state.userId = data;
     },
+    mutateInviteModalState(state, data: boolean): void {
+      state.showInviteModal = data;
+    },
   },
   actions: {
     setUserId(context, userId) {
@@ -70,6 +77,9 @@ export default createStore({
     },
     resetVotes(context) {
       context.commit("mutateVotes");
+    },
+    setInviteModalState(context, state) {
+      context.commit("mutateInviteModalState", state);
     },
   },
   modules: {},

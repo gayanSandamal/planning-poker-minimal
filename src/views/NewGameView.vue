@@ -51,44 +51,46 @@
       </div>
     </div>
   </div>
-  <ModalContainer
-    ref="modal"
-    title="Create Custom Deck"
-    okLabel="Create Game"
-    @cancel="cancelCustomDeckCreate"
-    @submit="submitCustomDeckCreate"
-  >
-    <div class="row">
-      <div class="col-12 mb-4">
-        <label for="deckName" class="form-label">Deck name</label>
-        <input
-          id="deckName"
-          class="form-control"
-          type="text"
-          autofocus
-          v-model="deck.name"
-        />
+  <Teleport to="body">
+    <ModalContainer
+      ref="modal"
+      title="Create Custom Deck"
+      okLabel="Create Game"
+      @cancel="cancelCustomDeckCreate"
+      @submit="submitCustomDeckCreate"
+    >
+      <div class="row">
+        <div class="col-12 mb-4">
+          <label for="deckName" class="form-label">Deck name</label>
+          <input
+            id="deckName"
+            class="form-control"
+            type="text"
+            autofocus
+            v-model="deck.name"
+          />
+        </div>
+        <div class="col-12 mb-4">
+          <label for="deckValues" class="form-label">Deck values</label>
+          <input
+            id="deckValues"
+            class="form-control"
+            type="text"
+            v-model="deck.values"
+          />
+        </div>
+        <div class="col-12 mb-4">
+          <label for="deckValues" class="form-label w-100">Preview</label>
+          <span
+            v-for="(item, index) in customPattern"
+            :key="index"
+            class="badge text-bg-secondary me-2"
+            >{{ item }}</span
+          >
+        </div>
       </div>
-      <div class="col-12 mb-4">
-        <label for="deckValues" class="form-label">Deck values</label>
-        <input
-          id="deckValues"
-          class="form-control"
-          type="text"
-          v-model="deck.values"
-        />
-      </div>
-      <div class="col-12 mb-4">
-        <label for="deckValues" class="form-label w-100">Preview</label>
-        <span
-          v-for="(item, index) in customPattern"
-          :key="index"
-          class="badge text-bg-secondary me-2"
-          >{{ item }}</span
-        >
-      </div>
-    </div>
-  </ModalContainer>
+    </ModalContainer>
+  </Teleport>
 </template>
 
 <script lang="ts" setup>

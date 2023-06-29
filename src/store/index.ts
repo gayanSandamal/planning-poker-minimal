@@ -40,7 +40,8 @@ export default createStore({
         state.gameData?.users?.filter(
           (teamMember: Member) => !teamMember.joinAsSpectator
         ) ?? [];
-      return totalVotes / players.length;
+      const avg = totalVotes / players.length;
+      return isNaN(avg) ? 0 : avg;
     },
     getInviteModalState(state) {
       return state.showInviteModal;

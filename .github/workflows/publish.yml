@@ -5,35 +5,30 @@ on:
     branches:
       - main
 
+env:
+  FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
+      - name: Checkout repository
+        uses: actions/checkout@v2.5.0
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v2
+      - name: Setup Node.js environment
+        uses: actions/setup-node@v3.5.1
         with:
           node-version: 16
-
-      - name: Cache yarn packages
-        uses: actions/cache@v2
-        with:
-          path: ~/.npm
-          key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
 
       - name: Install dependencies
         run: yarn install
 
-      - name: Build the application
+      - name: Build application
         run: yarn build
 
       - name: Deploy to Firebase Hosting
-        uses: w9jds/firebase-action@v1
-        with:
-          args: deploy --only hosting
-
-        env:
-          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+        run: |
+          yarn global add firebase-tools
+          firebase login --no-localhost --non-interactive --token "$FIREBASE_TOKEN"
+          firebase deploy --only hosting --token "$FIREBASE_TOKEN"

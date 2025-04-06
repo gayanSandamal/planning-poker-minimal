@@ -59,13 +59,15 @@ const props = defineProps({
 });
 const emit = defineEmits(["reveal", "reset"]);
 
-const getValues = computed(() =>
-  props.revealed
-    ? props.teamMembers.map((teamMember: Member) => {
-        return { name: teamMember.vote, value: teamMember.vote };
-      })
-    : [{ name: "", value: "‎ ‎ ‎ ‎ ‎ " }]
-);
+const getValues = computed(() => {
+  return props.revealed
+    ? props.teamMembers
+        .filter((teamMember: Member) => !teamMember.joinAsSpectator)
+        .map((teamMember: Member) => {
+          return { name: teamMember.vote, value: teamMember.vote };
+        })
+    : [{ name: "", value: "‎ ‎ ‎ ‎ ‎ " }];
+});
 
 const players = computed(() =>
   props.teamMembers.filter((teamMember: Member) => !teamMember.joinAsSpectator)

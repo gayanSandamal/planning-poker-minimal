@@ -4,7 +4,7 @@
       <div class="row justify-content-md-center">
         <div class="col-md-6">
           <div class="row text-center">
-            <div class="col-12">
+            <div class="col-12 mt-5">
               <h1>Planning Poker Minimal</h1>
             </div>
             <div class="col-12">
@@ -25,9 +25,18 @@
                     :voted-card="currentTeamMember?.vote"
                   />
                 </div>
-                <div v-if="revealed">
+                <div v-if="revealed" :class="hasDecimal ? '' : 'text-success'">
                   <p class="h4 mt-5">Average Agreement</p>
-                  <p class="h1">{{ averageAgreement }}</p>
+                  <p :class="hasDecimal ? 'h5' : 'h1'">
+                    {{ averageAgreement }}
+                  </p>
+
+                  <div v-if="hasDecimal" class="text-success">
+                    <p class="h4 mt-5">Rounded Agreement</p>
+                    <p class="h1">
+                      {{ roundedAgreement }}
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
@@ -132,7 +141,17 @@ const user = ref<Member>({
 const userId = computed(() => store.getters["getUserId"]);
 const gameData = computed(() => store.getters["getGameData"]);
 const teamMembers = computed(() => store.getters["getTeamMembers"]);
-const averageAgreement = computed(() => store.getters["getAverageAgreement"]);
+const averageAgreement = computed(() => {
+  const value = store.getters["getAverageAgreement"];
+  return value ? Number(value.toFixed(2)) : 0;
+});
+const hasDecimal = computed(() => averageAgreement.value % 1 !== 0);
+const roundedAgreement = computed(() => {
+  const value = averageAgreement.value;
+  if (!value) return 0;
+  return hasDecimal.value ? Math.round(value) : value;
+});
+
 const showInviteModal = computed(() => store.getters["getInviteModalState"]);
 
 const currentUrl = computed(() => window.location.href);

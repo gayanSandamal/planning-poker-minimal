@@ -29,6 +29,7 @@
                 v-for="votingSystem in votingSystems"
                 :key="votingSystem.id"
                 :value="votingSystem"
+                :disabled="votingSystem.disabled"
               >
                 {{ votingSystem.label }}
               </option>
@@ -116,8 +117,9 @@ const votingSystems: VotingSystem[] = [
   },
   {
     id: 3,
-    label: "T-shirts (xxs, xs, s, m, l, xl, xxl, ?, ☕ )",
+    label: "T-shirts (xxs, xs, s, m, l, xl, xxl, ?, ☕ ) (Available soon!)",
     pattern: ["xxs", "xs", "s", "m", "l", "xl", "xxl"],
+    disabled: true,
   },
   {
     id: 4,
@@ -126,7 +128,8 @@ const votingSystems: VotingSystem[] = [
   },
   {
     id: 999,
-    label: "Create Custom Deck",
+    label: "Create Custom Deck (Available soon!)",
+    disabled: true,
   },
 ];
 const form = ref<Game>({

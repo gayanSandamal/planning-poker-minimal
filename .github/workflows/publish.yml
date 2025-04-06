@@ -6,7 +6,7 @@ on:
       - main
 
 env:
-  FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+  FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
 
 jobs:
   deploy:
@@ -27,8 +27,12 @@ jobs:
       - name: Build application
         run: yarn build
 
+      - name: Set up Firebase authentication
+        run: |
+          echo "$FIREBASE_SERVICE_ACCOUNT" > $HOME/firebase-service-account.json
+          export GOOGLE_APPLICATION_CREDENTIALS=$HOME/firebase-service-account.json
+
       - name: Deploy to Firebase Hosting
         run: |
           yarn global add firebase-tools
-          firebase use --add --token "$FIREBASE_TOKEN"
-          firebase deploy --only hosting --token "$FIREBASE_TOKEN"
+          firebase deploy --only hosting

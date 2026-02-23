@@ -31,17 +31,47 @@ export default createStore({
       });
     },
     getAverageAgreement(state) {
-      const totalVotes =
-        state.gameData?.users?.reduce(
-          (total, next) => total + Number(next.vote),
-          0
-        ) ?? 0;
       const players =
         state.gameData?.users?.filter(
           (teamMember: Member) => !teamMember.joinAsSpectator
         ) ?? [];
+      if (players.length === 0) return 0;
+      const votes = players.map((p) => p.vote);
+      const numericVotes = votes.map((v) => Number(v));
+      if (numericVotes.some((n) => isNaN(n))) return null;
+      const totalVotes = numericVotes.reduce((total, n) => total + n, 0);
       const avg = totalVotes / players.length;
       return isNaN(avg) ? 0 : avg;
+    },
+    getConsensus(
+      state
+    ): { value: string; count: number; total: number } | null {
+      const players =
+        state.gameData?.users?.filter(
+          (teamMember: Member) =>
+            !teamMember.joinAsSpectator &&
+            teamMember.vote != null &&
+            teamMember.vote !== ""
+        ) ?? [];
+      if (players.length === 0) return null;
+      const votes = players.map((p) => p.vote);
+      const numericVotes = votes.map((v) => Number(v));
+      if (!numericVotes.some((n) => isNaN(n))) return null;
+      const counts: Record<string, number> = {};
+      for (const v of votes) {
+        counts[v] = (counts[v] ?? 0) + 1;
+      }
+      let topValue = "";
+      let topCount = 0;
+      for (const [val, count] of Object.entries(counts)) {
+        if (count > topCount) {
+          topValue = val;
+          topCount = count;
+        }
+      }
+      return topValue
+        ? { value: topValue, count: topCount, total: players.length }
+        : null;
     },
     getInviteModalState(state) {
       return state.showInviteModal;

@@ -26,9 +26,21 @@
                   />
                 </div>
                 <div v-if="revealed" :class="hasDecimal ? '' : 'text-success'">
-                  <p class="h4 mt-5">Average Agreement</p>
+                  <p class="h4 mt-5">
+                    {{ isNumericVoting ? "Average Agreement" : "Consensus" }}
+                  </p>
                   <p :class="hasDecimal ? 'h5' : 'h1'">
-                    {{ averageAgreement }}
+                    <template v-if="isNumericVoting">{{
+                      averageAgreement
+                    }}</template>
+                    <template v-else-if="consensus">
+                      {{ consensus.value }}
+                      <span class="h5 text-muted">
+                        ({{ consensus.count }} of {{ consensus.total }}
+                        {{ consensus.count === 1 ? "vote" : "votes" }})
+                      </span>
+                    </template>
+                    <template v-else>—</template>
                   </p>
 
                   <div v-if="hasDecimal" class="text-success">
@@ -37,6 +49,12 @@
                       {{ roundedAgreement }}
                     </p>
                   </div>
+                  <p
+                    v-if="!isNumericVoting && consensus"
+                    class="text-muted small mt-2"
+                  >
+                    Most common value (t-shirt / custom deck)
+                  </p>
                 </div>
               </div>
             </div>
@@ -143,14 +161,26 @@ const gameData = computed(() => store.getters["getGameData"]);
 const teamMembers = computed(() => store.getters["getTeamMembers"]);
 const averageAgreement = computed(() => {
   const value = store.getters["getAverageAgreement"];
-  return value ? Number(value.toFixed(2)) : 0;
+  if (value == null) return null;
+  return Number(value.toFixed(2));
 });
-const hasDecimal = computed(() => averageAgreement.value % 1 !== 0);
+const hasDecimal = computed(
+  () => averageAgreement.value != null && averageAgreement.value % 1 !== 0
+);
 const roundedAgreement = computed(() => {
   const value = averageAgreement.value;
-  if (!value) return 0;
+  if (value == null) return null;
   return hasDecimal.value ? Math.round(value) : value;
 });
+const isNumericVoting = computed(() => averageAgreement.value != null);
+const consensus = computed(
+  () =>
+    store.getters["getConsensus"] as {
+      value: string;
+      count: number;
+      total: number;
+    } | null
+);
 
 const showInviteModal = computed(() => store.getters["getInviteModalState"]);
 

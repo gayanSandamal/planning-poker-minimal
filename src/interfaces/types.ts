@@ -15,6 +15,7 @@ export interface VotingSystem {
   id: number;
   label: string;
   pattern?: string[];
+  disabled?: boolean;
 }
 
 export interface CustomDeck {

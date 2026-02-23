@@ -6,6 +6,9 @@
     "serve": "vue-cli-service serve",
     "build": "vue-cli-service build",
     "test:unit": "vue-cli-service test:unit",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:headed": "SLOW_E2E=400 playwright test --headed --workers=1",
     "lint": "vue-cli-service lint"
   },
   "dependencies": {
@@ -46,6 +49,7 @@
     "sass": "^1.32.7",
     "sass-loader": "^12.0.0",
     "ts-jest": "^27.0.4",
-    "typescript": "~4.5.5"
+    "typescript": "~4.5.5",
+    "@playwright/test": "^1.49.0"
   }
 }

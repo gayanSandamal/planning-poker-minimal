@@ -5,19 +5,16 @@ on:
     branches:
       - main
 
-env:
-  FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v2.5.0
+        uses: actions/checkout@v4
 
       - name: Setup Node.js environment
-        uses: actions/setup-node@v3.5.1
+        uses: actions/setup-node@v4
         with:
           node-version: 20
 
@@ -27,10 +24,11 @@ jobs:
       - name: Build application
         run: yarn build
 
-      - name: Set up Firebase authentication
-        run: |
-          echo "$FIREBASE_SERVICE_ACCOUNT" > $HOME/firebase-service-account.json
-          export GOOGLE_APPLICATION_CREDENTIALS=$HOME/firebase-service-account.json
+      - name: Authenticate to Google Cloud
+        id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
 
       - name: Deploy to Firebase Hosting
         run: |
@@ -40,5 +38,4 @@ jobs:
           fi
           npx firebase-tools deploy --only hosting --non-interactive --project "$FIREBASE_PROJECT"
         env:
-          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.home }}/firebase-service-account.json
           FIREBASE_PROJECT: ${{ secrets.FIREBASE_PROJECT }}

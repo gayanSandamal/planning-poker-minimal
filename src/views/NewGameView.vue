@@ -20,11 +20,7 @@
           </div>
           <div class="col-12 mb-4">
             <label for="name" class="form-label">Voting system</label>
-            <select
-              class="form-select"
-              v-model="form.votingSystem"
-              :disabled="form.name.trim() === ''"
-            >
+            <select class="form-select" v-model="form.votingSystem">
               <option
                 v-for="votingSystem in votingSystems"
                 :key="votingSystem.id"
@@ -41,7 +37,8 @@
                 class="btn btn-primary btn-lg"
                 @click="onSubmit"
                 :disabled="
-                  form.name.trim() === '' || form.votingSystem.id === 999
+                  form.name.trim() === '' ||
+                  form.votingSystem?.disabled === true
                 "
               >
                 Create Game
@@ -119,7 +116,7 @@ const votingSystems: VotingSystem[] = [
     id: 3,
     label: "T-shirts (xxs, xs, s, m, l, xl, xxl, ?, ☕ ) (Available soon!)",
     pattern: ["xxs", "xs", "s", "m", "l", "xl", "xxl"],
-    disabled: true,
+    // disabled: true,
   },
   {
     id: 4,
@@ -128,8 +125,9 @@ const votingSystems: VotingSystem[] = [
   },
   {
     id: 999,
-    label: "Create Custom Deck (Available soon!)",
-    disabled: true,
+    label: "Create Custom Deck",
+    pattern: [],
+    // disabled: true,
   },
 ];
 const form = ref<Game>({

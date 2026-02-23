@@ -34,5 +34,11 @@ jobs:
 
       - name: Deploy to Firebase Hosting
         run: |
-          yarn global add firebase-tools
-          firebase deploy --only hosting
+          if [ -n "$FIREBASE_PROJECT" ]; then
+            npx firebase-tools deploy --only hosting --non-interactive --project "$FIREBASE_PROJECT"
+          else
+            npx firebase-tools deploy --only hosting --non-interactive
+          fi
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.home }}/firebase-service-account.json
+          FIREBASE_PROJECT: ${{ secrets.FIREBASE_PROJECT }}

@@ -34,11 +34,11 @@ jobs:
 
       - name: Deploy to Firebase Hosting
         run: |
-          if [ -n "$FIREBASE_PROJECT" ]; then
-            npx firebase-tools deploy --only hosting --non-interactive --project "$FIREBASE_PROJECT"
-          else
-            npx firebase-tools deploy --only hosting --non-interactive
+          if [ -z "$FIREBASE_PROJECT" ]; then
+            echo "::error::FIREBASE_PROJECT secret is not set. Add your Firebase project ID in repo Settings → Secrets and variables → Actions."
+            exit 1
           fi
+          npx firebase-tools deploy --only hosting --non-interactive --project "$FIREBASE_PROJECT"
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.home }}/firebase-service-account.json
           FIREBASE_PROJECT: ${{ secrets.FIREBASE_PROJECT }}

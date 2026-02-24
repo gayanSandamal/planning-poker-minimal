@@ -1,20 +1,30 @@
 import { createApp } from "vue";
-import { VueFire, VueFireAuth } from "vuefire";
 import App from "./App.vue";
-import "./registerServiceWorker";
 import router from "./router";
 import store from "./store";
-import { firebaseApp } from "@/firebase/fb.appdata";
+import { setVueApp } from "@/firebase/init";
 
-createApp(App)
-  .use(store)
-  .use(router)
-  .use(VueFire, {
-    // imported above but could also just be created here
-    firebaseApp,
-    modules: [
-      // we will see other modules later on
-      VueFireAuth(),
-    ],
-  })
-  .mount("#app");
+const app = createApp(App).use(store).use(router);
+setVueApp(app);
+app.mount("#app");
+
+const preloader = document.getElementById("app-preloader");
+if (preloader) {
+  preloader.classList.add("hidden");
+  let removed = false;
+  const removePreloader = () => {
+    if (removed) return;
+    removed = true;
+    preloader.remove();
+  };
+  preloader.addEventListener("transitionend", removePreloader, { once: true });
+  setTimeout(removePreloader, 500);
+}
+
+if (typeof requestIdleCallback !== "undefined") {
+  requestIdleCallback(() => import("./registerServiceWorker"), {
+    timeout: 2000,
+  });
+} else {
+  setTimeout(() => import("./registerServiceWorker"), 2000);
+}

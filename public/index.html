@@ -5,9 +5,138 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width,initial-scale=1.0">
     <link rel="icon" href="<%= BASE_URL %>favicon.ico">
+    <link rel="preconnect" href="https://firebaseapp.com">
+    <link rel="preconnect" href="https://firestore.googleapis.com">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <title><%= htmlWebpackPlugin.options.title %></title>
+    <style>
+      #app-preloader {
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(135deg, #0f5132 0%, #198754 50%, #20c997 100%);
+        transition: opacity 0.4s ease, visibility 0.4s ease;
+      }
+      #app-preloader.hidden {
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+      }
+      .preloader-brand {
+        font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+        font-size: clamp(1.25rem, 4vw, 1.75rem);
+        font-weight: 700;
+        color: rgba(255, 255, 255, 0.95);
+        letter-spacing: 0.02em;
+        margin-bottom: 2rem;
+        text-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+      }
+      .preloader-cards {
+        display: flex;
+        gap: 0.5rem;
+        align-items: center;
+        justify-content: center;
+      }
+      .preloader-card {
+        width: 28px;
+        height: 38px;
+        background: rgba(255, 255, 255, 0.9);
+        border-radius: 6px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        animation: preloader-flip 1.2s ease-in-out infinite;
+      }
+      .preloader-card:nth-child(1) { animation-delay: 0s; }
+      .preloader-card:nth-child(2) { animation-delay: 0.15s; }
+      .preloader-card:nth-child(3) { animation-delay: 0.3s; }
+      .preloader-card:nth-child(4) { animation-delay: 0.45s; }
+      .preloader-card:nth-child(5) { animation-delay: 0.6s; }
+      @keyframes preloader-flip {
+        0%, 100% { transform: perspective(120px) rotateY(0deg); opacity: 1; }
+        50% { transform: perspective(120px) rotateY(90deg); opacity: 0.7; }
+      }
+      .preloader-dots {
+        margin-top: 1.5rem;
+        display: flex;
+        gap: 6px;
+      }
+      .preloader-dots span {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.8);
+        animation: preloader-bounce 0.8s ease-in-out infinite;
+      }
+      .preloader-dots span:nth-child(1) { animation-delay: 0s; }
+      .preloader-dots span:nth-child(2) { animation-delay: 0.15s; }
+      .preloader-dots span:nth-child(3) { animation-delay: 0.3s; }
+      @keyframes preloader-bounce {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-8px); }
+      }
+      .preloader-messages {
+        margin-top: 1.75rem;
+        min-height: 2.5rem;
+        position: relative;
+        width: 100%;
+        max-width: 20rem;
+        text-align: center;
+      }
+      .preloader-message {
+        position: absolute;
+        left: 0;
+        right: 0;
+        opacity: 0;
+        font-size: 0.95rem;
+        color: rgba(255, 255, 255, 0.9);
+        font-style: italic;
+        letter-spacing: 0.03em;
+        text-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+        animation: preloader-msg 18s linear infinite;
+      }
+      .preloader-message:nth-child(1) { animation-delay: 0s; }
+      .preloader-message:nth-child(2) { animation-delay: -3s; }
+      .preloader-message:nth-child(3) { animation-delay: -6s; }
+      .preloader-message:nth-child(4) { animation-delay: -9s; }
+      .preloader-message:nth-child(5) { animation-delay: -12s; }
+      .preloader-message:nth-child(6) { animation-delay: -15s; }
+      @keyframes preloader-msg {
+        0% { opacity: 0; transform: translateY(6px); }
+        3% { opacity: 1; transform: translateY(0); }
+        14% { opacity: 1; transform: translateY(0); }
+        17% { opacity: 0; transform: translateY(-6px); }
+        100% { opacity: 0; transform: translateY(-6px); }
+      }
+    </style>
   </head>
   <body>
+    <div id="app-preloader" aria-hidden="true">
+      <span class="preloader-brand">Planning Poker</span>
+      <div class="preloader-cards">
+        <div class="preloader-card"></div>
+        <div class="preloader-card"></div>
+        <div class="preloader-card"></div>
+        <div class="preloader-card"></div>
+        <div class="preloader-card"></div>
+      </div>
+      <div class="preloader-messages" aria-live="polite">
+        <span class="preloader-message">Shuffling the deck…</span>
+        <span class="preloader-message">Dealing you in…</span>
+        <span class="preloader-message">Setting the table…</span>
+        <span class="preloader-message">Preparing your hand…</span>
+        <span class="preloader-message">Counting the chips…</span>
+        <span class="preloader-message">Almost ready to play…</span>
+      </div>
+      <div class="preloader-dots" aria-hidden="true">
+        <span></span>
+        <span></span>
+        <span></span>
+      </div>
+    </div>
     <noscript>
       <strong>We're sorry but <%= htmlWebpackPlugin.options.title %> doesn't work properly without JavaScript enabled. Please enable it to continue.</strong>
     </noscript>

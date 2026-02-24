@@ -1,15 +1,10 @@
 <template>
   <div class="icon-wrapper">
-    <div
-      class="icon"
-      :class="[size, `text-${align}`]"
-      v-html="icons[props.icon]"
-    ></div>
+    <div class="icon" :class="[size, `text-${align}`]" v-html="iconSvg"></div>
   </div>
 </template>
 
 <script lang="ts" setup>
-import * as ICONS from "@/assets/graphics/SVGs.ts";
 import {
   ALIGNMENTS,
   ALIGN_CENTER,
@@ -18,7 +13,8 @@ import {
   ICON_SIZES,
   IconSizes,
 } from "@/interfaces/types";
-import { PropType, defineProps } from "vue";
+import { PropType, defineProps, ref, watch, onMounted } from "vue";
+
 const props = defineProps({
   icon: {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -40,8 +36,18 @@ const props = defineProps({
     },
   },
 });
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const icons: any = ICONS;
+
+const iconSvg = ref("");
+
+function loadIcon() {
+  if (!props.icon) return;
+  import("@/assets/graphics/SVGs").then((m) => {
+    iconSvg.value = (m as Record<string, string>)[props.icon] ?? "";
+  });
+}
+
+onMounted(loadIcon);
+watch(() => props.icon, loadIcon);
 </script>
 
 <style lang="scss" scoped>

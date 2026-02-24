@@ -129,7 +129,7 @@
 </template>
 
 <script lang="ts" setup>
-import { ref, computed, watch } from "vue";
+import { ref, computed, watch, getCurrentInstance } from "vue";
 import { Card, Game, Member } from "@/interfaces/types";
 import CardList from "@/components/CardList.vue";
 import PockerTable from "./../components/PockerTable.vue";
@@ -139,8 +139,6 @@ import { doc, onSnapshot } from "firebase/firestore";
 import ModalContainer from "@/components/ModalContainer.vue";
 import { nanoid } from "nanoid";
 import { useStore } from "vuex";
-import { toast } from "vue3-toastify";
-import "vue3-toastify/dist/index.css";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const route: any = useRoute();
@@ -233,9 +231,16 @@ const continueToGame = () => {
   if (modal.value) modal.value.toggle();
 };
 
-const copyGameUrl = () => {
+const copyGameUrl = async () => {
   navigator.clipboard.writeText(currentUrl.value);
   store.dispatch("setInviteModalState", false);
+  const { toast, default: Toast } = await import("vue3-toastify");
+  await import("vue3-toastify/dist/index.css");
+  const app = getCurrentInstance()?.appContext.app;
+  if (app && !(app as { _toastInstalled?: boolean })._toastInstalled) {
+    app.use(Toast);
+    (app as { _toastInstalled?: boolean })._toastInstalled = true;
+  }
   toast.success("Copied to clipboard", {
     autoClose: 1000,
   });

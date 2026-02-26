@@ -34,6 +34,9 @@ module.exports = defineConfig({
   pwa: {
     workboxOptions: {
       maximumFileSizeToCacheInBytes: 2 * 1024 * 1024,
+      // Activate new SW immediately so one refresh loads the new deploy (no manual cache clear)
+      skipWaiting: true,
+      clientsClaim: true,
     },
   },
 });

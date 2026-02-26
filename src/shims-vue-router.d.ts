@@ -24,6 +24,7 @@ declare module "vue-router" {
   }): {
     push: (to: string | { name: string; params?: Record<string, string> }) => Promise<unknown>;
     replace: (to: string | { name: string; params?: Record<string, string> }) => Promise<unknown>;
+    afterEach: (guard: (to: RouteLocationNormalized) => void) => () => void;
     currentRoute: { value: { name: string; params: Record<string, string> } };
     install: (app: unknown) => void;
   };

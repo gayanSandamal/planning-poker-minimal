@@ -1,2 +1,4 @@
 User-agent: *
-Disallow:
+Allow: /
+
+Sitemap: https://planning-pocker-d304c.firebaseapp.com/sitemap.xml

@@ -1,19 +1,27 @@
 <template>
-  <Transition>
+  <Transition
+    @after-enter="focusTrapActivate"
+    @after-leave="focusTrapDeactivate"
+  >
     <div
       ref="modalRef"
       v-if="show"
       class="modal align-items-center justify-content-center fade show"
+      role="dialog"
+      aria-modal="true"
+      :aria-labelledby="titleId"
       @click="allowClose ? cancel() : triggerModalError()"
+      @keydown="handleKeydown"
     >
       <div
+        ref="dialogRef"
         class="modal-dialog w-100"
         :class="{ heartbeat: modalError }"
         @click.stop="() => {}"
       >
         <div class="modal-content">
           <div class="modal-header">
-            <h5 class="modal-title">{{ title }}</h5>
+            <h5 :id="titleId" class="modal-title">{{ title }}</h5>
             <button
               v-if="allowClose"
               type="button"
@@ -52,10 +60,80 @@
 </template>
 
 <script lang="ts" setup>
-import { defineProps, defineEmits, defineExpose, PropType, ref } from "vue";
+import {
+  defineProps,
+  defineEmits,
+  defineExpose,
+  PropType,
+  ref,
+  nextTick,
+} from "vue";
 
-const modalRef = ref();
+const modalRef = ref<HTMLElement | null>(null);
+const dialogRef = ref<HTMLElement | null>(null);
 const show = ref<boolean>(false);
+const titleId = ref(`modal-title-${Math.random().toString(36).slice(2, 9)}`);
+let previousActiveElement: HTMLElement | null = null;
+let focusTrapKeydown: ((e: KeyboardEvent) => void) | null = null;
+
+const FOCUSABLE =
+  'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
+
+function getFocusables(container: HTMLElement): HTMLElement[] {
+  return Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE)).filter(
+    (el) => !el.hasAttribute("disabled") && el.offsetParent !== null
+  );
+}
+
+function focusTrapActivate() {
+  previousActiveElement = (document.activeElement as HTMLElement) || null;
+  nextTick(() => {
+    const dialog = dialogRef.value;
+    if (!dialog) return;
+    const focusables = getFocusables(dialog);
+    const first = focusables[0];
+    if (first) first.focus();
+    focusTrapKeydown = (e: KeyboardEvent) => {
+      if (e.key !== "Tab") return;
+      const focusables = getFocusables(dialog);
+      if (focusables.length === 0) return;
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      if (e.shiftKey) {
+        if (document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        }
+      } else {
+        if (document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
+    };
+    document.addEventListener("keydown", focusTrapKeydown);
+  });
+}
+
+function focusTrapDeactivate() {
+  if (focusTrapKeydown) {
+    document.removeEventListener("keydown", focusTrapKeydown);
+    focusTrapKeydown = null;
+  }
+  if (
+    previousActiveElement &&
+    typeof previousActiveElement.focus === "function"
+  ) {
+    previousActiveElement.focus();
+  }
+}
+
+function handleKeydown(e: KeyboardEvent) {
+  if (e.key === "Escape" && props.allowClose) {
+    cancel();
+  }
+}
+
 const toggle = () => (show.value = !show.value);
 const props = defineProps({
   title: {
@@ -102,7 +180,7 @@ const triggerModalError = () => {
 defineExpose({
   show,
   toggle,
-  modalRef,
+  modalRef: modalRef as unknown as typeof modalRef,
 });
 </script>
 

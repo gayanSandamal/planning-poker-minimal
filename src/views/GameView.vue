@@ -1,68 +1,171 @@
 <template>
-  <div class="app">
-    <div class="container">
-      <div class="row justify-content-md-center">
-        <div class="col-md-6">
-          <div class="row text-center">
-            <div class="col-12 mt-5">
-              <h1>Planning Poker Minimal</h1>
-            </div>
-            <div class="col-12">
-              <div class="w-100">
-                <PockerTable
-                  class="my-5"
-                  :team-members="teamMembers"
-                  :revealed="revealed"
-                  @reveal="reveal"
-                  @reset="reset"
-                />
-                <div v-if="!currentTeamMember?.joinAsSpectator && !revealed">
-                  <p>Choose your card 👇</p>
-                  <CardList
-                    :cards="cards"
-                    @card-selected="recordVote"
-                    :disabled="disabled"
-                    :voted-card="currentTeamMember?.vote"
-                  />
-                </div>
-                <div v-if="revealed" :class="hasDecimal ? '' : 'text-success'">
-                  <p class="h4 mt-5">
-                    {{ isNumericVoting ? "Average Agreement" : "Consensus" }}
-                  </p>
-                  <p :class="hasDecimal ? 'h5' : 'h1'">
-                    <template v-if="isNumericVoting">{{
-                      averageAgreement
-                    }}</template>
-                    <template v-else-if="consensus">
-                      {{ consensus.value }}
-                      <span class="h5 text-muted">
-                        ({{ consensus.count }} of {{ consensus.total }}
-                        {{ consensus.count === 1 ? "vote" : "votes" }})
-                      </span>
-                    </template>
-                    <template v-else>—</template>
-                  </p>
+  <div class="game-view">
+    <!-- ── Game Not Found ─────────────────────────────── -->
+    <div v-if="gameNotFound" class="gv-not-found">
+      <div class="gv-not-found-card">
+        <div class="gv-not-found-icon">
+          <i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i>
+        </div>
+        <h1 class="gv-not-found-title">Game not found</h1>
+        <p class="gv-not-found-desc">
+          This game doesn't exist or the link is invalid. Create a new game or
+          go back home.
+        </p>
+        <div class="gv-not-found-actions">
+          <router-link class="gv-btn gv-btn--primary" to="/new-game">
+            <i class="bi bi-play-fill" aria-hidden="true"></i>
+            Start new game
+          </router-link>
+          <router-link class="gv-btn gv-btn--outline" to="/">
+            <i class="bi bi-house-fill" aria-hidden="true"></i>
+            Home
+          </router-link>
+        </div>
+      </div>
+    </div>
 
-                  <div v-if="hasDecimal" class="text-success">
-                    <p class="h4 mt-5">Rounded Agreement</p>
-                    <p class="h1">
-                      {{ roundedAgreement }}
-                    </p>
-                  </div>
-                  <p
-                    v-if="!isNumericVoting && consensus"
-                    class="text-muted small mt-2"
-                  >
-                    Most common value (t-shirt / custom deck)
-                  </p>
-                </div>
+    <!-- ── Active Game ────────────────────────────────── -->
+    <div v-else class="gv-active">
+      <!-- Info bar -->
+      <div class="gv-info-bar">
+        <div class="container">
+          <div class="gv-info-inner">
+            <div class="gv-info-left">
+              <h1 class="gv-game-name">
+                {{ gameData?.name || "Planning Session" }}
+              </h1>
+              <span v-if="deckLabel" class="gv-deck-badge">
+                <i class="bi bi-stack" aria-hidden="true"></i>
+                {{ deckLabel }}
+              </span>
+            </div>
+            <div class="gv-info-right">
+              <div v-if="teamMembers.length" class="gv-player-count">
+                <i class="bi bi-people-fill" aria-hidden="true"></i>
+                {{ teamMembers.length }}
+                {{ teamMembers.length === 1 ? "player" : "players" }}
+              </div>
+              <div
+                class="gv-status-badge"
+                :class="
+                  revealed
+                    ? 'gv-status-badge--revealed'
+                    : 'gv-status-badge--voting'
+                "
+              >
+                <span class="gv-status-dot" aria-hidden="true"></span>
+                {{ revealed ? "Revealed" : "Voting" }}
               </div>
             </div>
           </div>
         </div>
       </div>
+
+      <!-- Main content -->
+      <div class="container gv-content">
+        <!-- Poker table -->
+        <div class="gv-table-wrap">
+          <PockerTable
+            :team-members="teamMembers"
+            :revealed="revealed"
+            @reveal="reveal"
+            @reset="reset"
+          />
+        </div>
+
+        <!-- Card hand (voters only, while voting) -->
+        <div
+          v-if="!currentTeamMember?.joinAsSpectator && !revealed"
+          class="gv-hand"
+        >
+          <p class="gv-hand-prompt">
+            <i class="bi bi-hand-index-fill" aria-hidden="true"></i>
+            Pick your card
+          </p>
+          <CardList
+            :cards="cards"
+            @card-selected="recordVote"
+            :disabled="disabled"
+            :voted-card="currentTeamMember?.vote"
+          />
+        </div>
+
+        <!-- Spectator hint -->
+        <div
+          v-else-if="currentTeamMember?.joinAsSpectator && !revealed"
+          class="gv-spectator"
+        >
+          <i class="bi bi-eye-fill" aria-hidden="true"></i>
+          You are watching as a spectator
+        </div>
+
+        <!-- Results panel -->
+        <Transition name="results-fade">
+          <div v-if="revealed" class="gv-results">
+            <div class="gv-results-grid">
+              <!-- Primary metric -->
+              <div class="gv-result-card gv-result-card--primary">
+                <div class="gv-result-label">
+                  {{ isNumericVoting ? "Average" : "Consensus" }}
+                </div>
+                <div
+                  class="gv-result-value"
+                  :class="
+                    hasDecimal
+                      ? 'gv-result-value--neutral'
+                      : 'gv-result-value--green'
+                  "
+                >
+                  <template v-if="isNumericVoting">
+                    {{ averageAgreement }}
+                  </template>
+                  <template v-else-if="consensus">
+                    {{ consensus.value }}
+                  </template>
+                  <template v-else>—</template>
+                </div>
+                <div v-if="!isNumericVoting && consensus" class="gv-result-sub">
+                  {{ consensus.count }} of {{ consensus.total }}
+                  {{ consensus.count === 1 ? "vote" : "votes" }}
+                </div>
+                <div v-if="!isNumericVoting" class="gv-result-hint">
+                  Most common value
+                </div>
+              </div>
+
+              <!-- Rounded (only when there's a decimal) -->
+              <div
+                v-if="hasDecimal"
+                class="gv-result-card gv-result-card--rounded"
+              >
+                <div class="gv-result-label">Rounded</div>
+                <div class="gv-result-value gv-result-value--green">
+                  {{ roundedAgreement }}
+                </div>
+                <div class="gv-result-sub">Nearest whole number</div>
+              </div>
+
+              <!-- Nearest in deck (Fibonacci / numeric decks) -->
+              <div
+                v-if="showNearestInDeck"
+                class="gv-result-card gv-result-card--nearest"
+              >
+                <div class="gv-result-label">Nearest in deck</div>
+                <div class="gv-result-value gv-result-value--green">
+                  {{ nearestInDeck }}
+                </div>
+                <div class="gv-result-sub">
+                  Closest value in your deck (e.g. Fibonacci)
+                </div>
+              </div>
+            </div>
+          </div>
+        </Transition>
+      </div>
     </div>
   </div>
+
+  <!-- ── Display name modal ───────────────────────── -->
   <Teleport to="body">
     <ModalContainer
       ref="modal"
@@ -101,6 +204,8 @@
       </div>
     </ModalContainer>
   </Teleport>
+
+  <!-- ── Invite modal ─────────────────────────────── -->
   <Teleport to="body">
     <ModalContainer
       ref="inviteTeamModal"
@@ -112,16 +217,18 @@
     >
       <div class="row">
         <div class="col-12 mb-4">
-          <label for="displayName" class="form-label">URL of the game</label>
+          <label for="gameUrl" class="form-label">URL of the game</label>
           <input
-            id="displayName"
+            id="gameUrl"
             class="form-control"
             type="text"
-            autofocus
             readonly
-            placeholder="Display name"
+            aria-describedby="gameUrlHelp"
             :value="currentUrl"
           />
+          <small id="gameUrlHelp" class="form-text text-muted">
+            Share this link so others can join the game.
+          </small>
         </div>
       </div>
     </ModalContainer>
@@ -129,7 +236,7 @@
 </template>
 
 <script lang="ts" setup>
-import { ref, computed, watch, getCurrentInstance } from "vue";
+import { ref, computed, watch } from "vue";
 import { Card, Game, Member } from "@/interfaces/types";
 import CardList from "@/components/CardList.vue";
 import PockerTable from "./../components/PockerTable.vue";
@@ -139,12 +246,15 @@ import { doc, onSnapshot } from "firebase/firestore";
 import ModalContainer from "@/components/ModalContainer.vue";
 import { nanoid } from "nanoid";
 import { useStore } from "vuex";
+import { useToast } from "@/composables/useToast";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const route: any = useRoute();
 const store = useStore();
+const toast = useToast();
 
 const gamesHttp = new Base(GAME_COLLECTION);
+const gameNotFound = ref(false);
 
 const user = ref<Member>({
   id: nanoid(),
@@ -170,6 +280,33 @@ const roundedAgreement = computed(() => {
   if (value == null) return null;
   return hasDecimal.value ? Math.round(value) : value;
 });
+
+/** Nearest value in the deck to the average (e.g. nearest Fibonacci). Null if deck is non-numeric. */
+const nearestInDeck = computed((): string | null => {
+  const avg = averageAgreement.value;
+  const pattern = gameData.value?.votingSystem?.pattern;
+  if (avg == null || !pattern?.length) return null;
+  const numericEntries = pattern.map((s: string) => ({
+    str: s,
+    num: Number(s),
+  }));
+  if (numericEntries.every((e: { num: number }) => !Number.isNaN(e.num))) {
+    let nearest = numericEntries[0];
+    for (let i = 1; i < numericEntries.length; i++) {
+      const cur = numericEntries[i];
+      if (cur && Math.abs(cur.num - avg) < Math.abs(nearest.num - avg)) {
+        nearest = cur;
+      }
+    }
+    return nearest.str;
+  }
+  return null;
+});
+
+const showNearestInDeck = computed(
+  () => isNumericVoting.value && nearestInDeck.value != null
+);
+
 const isNumericVoting = computed(() => averageAgreement.value != null);
 const consensus = computed(
   () =>
@@ -181,72 +318,93 @@ const consensus = computed(
 );
 
 const showInviteModal = computed(() => store.getters["getInviteModalState"]);
-
 const currentUrl = computed(() => window.location.href);
-
 const currentTeamMember = ref<Member | undefined>();
 const modal = ref();
 const inviteTeamModal = ref();
 
+const deckLabel = computed((): string => {
+  const label: string = gameData.value?.votingSystem?.label ?? "";
+  if (!label) return "";
+  const match = label.match(/^([^(]+)/);
+  return match ? match[1].trim() : label;
+});
+
 const cards = computed((): Card[] => {
   return (
-    gameData.value?.votingSystem?.pattern?.map((digit: string) => {
-      return {
-        value: digit,
-      };
-    }) || []
+    gameData.value?.votingSystem?.pattern?.map((digit: string) => ({
+      value: digit,
+    })) || []
   );
 });
 
 const revealed = computed(() => gameData.value?.reveal);
-
 const disabled = ref(false);
 
-const recordVote = (vote: Card) => {
-  if (currentTeamMember.value) {
+const recordVote = async (vote: Card) => {
+  if (!currentTeamMember.value) return;
+  try {
     currentTeamMember.value.vote = vote.value;
-    gamesHttp.setDoc(route.params.id, { users: teamMembers.value });
+    await gamesHttp.setDoc(route.params.id, { users: teamMembers.value });
+  } catch {
+    await toast.error(
+      "Failed to save your vote. Check your connection and try again."
+    );
   }
 };
 
-const reveal = () => {
-  gamesHttp.setDoc(route.params.id, { reveal: true });
+const reveal = async () => {
+  try {
+    await gamesHttp.setDoc(route.params.id, { reveal: true });
+  } catch {
+    await toast.error(
+      "Failed to reveal cards. Check your connection and try again."
+    );
+  }
 };
 
-const reset = () => {
-  store.dispatch("resetVotes", route.params.id);
-  gamesHttp.setDoc(route.params.id, {
-    reveal: false,
-    users: teamMembers.value,
-  });
+const reset = async () => {
+  try {
+    store.dispatch("resetVotes", route.params.id);
+    await gamesHttp.setDoc(route.params.id, {
+      reveal: false,
+      users: teamMembers.value,
+    });
+  } catch {
+    await toast.error(
+      "Failed to reset round. Check your connection and try again."
+    );
+  }
 };
 
 let justStarted = false;
-const continueToGame = () => {
+const continueToGame = async () => {
   if (teamMembers.value.length > 0) user.value.admin = false;
   const users: Member[] = [...teamMembers.value, ...[user.value]];
-  gamesHttp.setDoc(route.params.id, { users: users });
-  store.dispatch("setUserId", user.value.id);
-  justStarted = true;
-  if (modal.value) modal.value.toggle();
+  try {
+    await gamesHttp.setDoc(route.params.id, { users });
+    store.dispatch("setUserId", user.value.id);
+    justStarted = true;
+    if (modal.value) modal.value.toggle();
+  } catch {
+    await toast.error(
+      "Failed to join the game. Check your connection and try again."
+    );
+  }
 };
 
 const copyGameUrl = async () => {
-  navigator.clipboard.writeText(currentUrl.value);
-  store.dispatch("setInviteModalState", false);
-  const { toast, default: Toast } = await import("vue3-toastify");
-  await import("vue3-toastify/dist/index.css");
-  const app = getCurrentInstance()?.appContext.app;
-  if (app && !(app as { _toastInstalled?: boolean })._toastInstalled) {
-    app.use(Toast);
-    (app as { _toastInstalled?: boolean })._toastInstalled = true;
+  try {
+    await navigator.clipboard.writeText(currentUrl.value);
+    store.dispatch("setInviteModalState", false);
+    await toast.success("Copied to clipboard", { autoClose: 1000 });
+  } catch {
+    await toast.error("Could not copy to clipboard. Copy the URL manually.");
   }
-  toast.success("Copied to clipboard", {
-    autoClose: 1000,
-  });
 };
 
 const setNewUserModalState = () => {
+  if (gameNotFound.value || !modal.value) return;
   currentTeamMember.value = teamMembers.value.find(
     (teamMember: Member) => teamMember.id === userId.value
   );
@@ -257,18 +415,32 @@ const setNewUserModalState = () => {
   }
 };
 
-onSnapshot(doc(db, GAME_COLLECTION, route.params.id), (doc) => {
-  store.dispatch("setGameData", doc.data() as Game);
-});
+onSnapshot(
+  doc(db, GAME_COLLECTION, route.params.id),
+  (snapshot) => {
+    if (!snapshot.exists()) {
+      gameNotFound.value = true;
+      store.dispatch("setGameData", null);
+    } else {
+      gameNotFound.value = false;
+      store.dispatch("setGameData", snapshot.data() as Game);
+    }
+  },
+  (err) => {
+    gameNotFound.value = true;
+    store.dispatch("setGameData", null);
+    toast.error("Could not load game. Check your connection.");
+    // eslint-disable-next-line no-console -- log Firestore errors for debugging
+    console.error("Firestore snapshot error:", err);
+  }
+);
 
 watch(
   () => gameData.value,
   () => {
     setNewUserModalState();
   },
-  {
-    deep: true,
-  }
+  { deep: true }
 );
 
 watch(
@@ -276,8 +448,373 @@ watch(
   (value: boolean) => {
     inviteTeamModal.value.show = value;
   },
-  {
-    deep: true,
-  }
+  { deep: true }
 );
 </script>
+
+<style lang="scss" scoped>
+.game-view {
+  min-height: calc(100vh - 115px);
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Not Found ─────────────────────────────────── */
+.gv-not-found {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem 1rem;
+}
+
+.gv-not-found-card {
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.07);
+  border-radius: 20px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.07);
+  padding: 3rem 2.5rem;
+  text-align: center;
+  max-width: 440px;
+  width: 100%;
+}
+
+.gv-not-found-icon {
+  width: 4rem;
+  height: 4rem;
+  background: rgba(220, 53, 69, 0.1);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 1.5rem;
+  font-size: 1.5rem;
+  color: #dc3545;
+}
+
+.gv-not-found-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #1a1a1a;
+  margin: 0 0 0.75rem;
+}
+
+.gv-not-found-desc {
+  color: #6c757d;
+  line-height: 1.6;
+  margin: 0 0 1.75rem;
+  font-size: 0.9375rem;
+}
+
+.gv-not-found-actions {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.gv-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.625rem 1.25rem;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  border-radius: 12px;
+  text-decoration: none;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+
+  &:hover {
+    transform: translateY(-1px);
+  }
+
+  &--primary {
+    background: #0f5132;
+    color: #fff;
+    box-shadow: 0 2px 8px rgba(15, 81, 50, 0.3);
+
+    &:hover {
+      background: #0d4629;
+      color: #fff;
+      box-shadow: 0 4px 16px rgba(15, 81, 50, 0.4);
+    }
+  }
+
+  &--outline {
+    background: #fff;
+    color: #0f5132;
+    border: 1.5px solid rgba(15, 81, 50, 0.25);
+
+    &:hover {
+      background: rgba(15, 81, 50, 0.05);
+      color: #0f5132;
+    }
+  }
+}
+
+/* ── Active Game ───────────────────────────────── */
+.gv-active {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Info bar */
+.gv-info-bar {
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(10px);
+  padding: 0.875rem 0;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.gv-info-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.gv-info-left {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.gv-game-name {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: #1a1a1a;
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+.gv-deck-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: #0f5132;
+  background: rgba(25, 135, 84, 0.1);
+  padding: 0.25rem 0.625rem;
+  border-radius: 100px;
+}
+
+.gv-info-right {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.gv-player-count {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #6c757d;
+}
+
+.gv-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  padding: 0.3rem 0.75rem;
+  border-radius: 100px;
+
+  &--voting {
+    background: rgba(255, 193, 7, 0.15);
+    color: #856404;
+
+    .gv-status-dot {
+      background: #ffc107;
+      animation: status-pulse 1.5s ease-in-out infinite;
+    }
+  }
+
+  &--revealed {
+    background: rgba(25, 135, 84, 0.12);
+    color: #0f5132;
+
+    .gv-status-dot {
+      background: #198754;
+    }
+  }
+}
+
+.gv-status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+@keyframes status-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+/* Main content */
+.gv-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2.5rem;
+  padding-top: 2.5rem;
+  padding-bottom: 3rem;
+}
+
+.gv-table-wrap {
+  width: 100%;
+  max-width: 640px;
+}
+
+/* Hand */
+.gv-hand {
+  width: 100%;
+  max-width: 720px;
+  text-align: center;
+}
+
+.gv-hand-prompt {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: #4a5568;
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+
+  .bi {
+    color: #198754;
+  }
+}
+
+/* Spectator */
+.gv-spectator {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9375rem;
+  color: #6c757d;
+  background: rgba(108, 117, 125, 0.08);
+  padding: 0.75rem 1.25rem;
+  border-radius: 12px;
+
+  .bi {
+    color: #adb5bd;
+  }
+}
+
+/* Results */
+.results-fade-enter-active,
+.results-fade-leave-active {
+  transition: opacity 0.45s ease, transform 0.45s ease;
+}
+
+.results-fade-enter-from,
+.results-fade-leave-to {
+  opacity: 0;
+  transform: translateY(14px);
+}
+
+.gv-results {
+  width: 100%;
+  max-width: 640px;
+}
+
+.gv-results-grid {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.gv-result-card {
+  flex: 1;
+  min-width: 160px;
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.07);
+  border-radius: 18px;
+  padding: 1.75rem 2rem;
+  text-align: center;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.07);
+
+  &--rounded {
+    border-color: rgba(25, 135, 84, 0.2);
+    background: rgba(25, 135, 84, 0.03);
+  }
+
+  &--nearest {
+    border-color: rgba(25, 135, 84, 0.25);
+    background: rgba(25, 135, 84, 0.06);
+  }
+}
+
+.gv-result-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #9ca3af;
+  margin-bottom: 0.5rem;
+}
+
+.gv-result-value {
+  font-size: 4rem;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.04em;
+  margin-bottom: 0.5rem;
+
+  &--green {
+    color: #0f5132;
+  }
+
+  &--neutral {
+    color: #1a1a1a;
+    font-size: 3rem;
+  }
+}
+
+.gv-result-sub {
+  font-size: 0.875rem;
+  color: #6c757d;
+  font-weight: 500;
+  margin-top: 0.25rem;
+}
+
+.gv-result-hint {
+  font-size: 0.8rem;
+  color: #adb5bd;
+  margin-top: 0.2rem;
+}
+
+@media (max-width: 575.98px) {
+  .gv-game-name {
+    font-size: 1rem;
+  }
+
+  .gv-result-value {
+    font-size: 3rem;
+
+    &--neutral {
+      font-size: 2.25rem;
+    }
+  }
+}
+</style>

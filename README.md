@@ -2,8 +2,8 @@
 # Planning Poker Minimal
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![GitHub contributors](https://img.shields.io/github/contributors/your-username/your-repo.svg)](https://github.com/gayanSandamal/planning-poker-minimal/graphs/contributors)
-[![GitHub issues](https://img.shields.io/github/issues/your-username/your-repo.svg)](https://github.com/gayanSandamal/planning-poker-minimal/issues)
+[![GitHub contributors](https://img.shields.io/github/contributors/gayanSandamal/planning-poker-minimal.svg)](https://github.com/gayanSandamal/planning-poker-minimal/graphs/contributors)
+[![GitHub issues](https://img.shields.io/github/issues/gayanSandamal/planning-poker-minimal.svg)](https://github.com/gayanSandamal/planning-poker-minimal/issues)
 
 Welcome to **Planning Poker Minimal**! This is a simple Vue 3 application for planning poker sessions. Planning poker is a technique used in agile software development to estimate the complexity of user stories or tasks. This minimalist version focuses on simplicity and ease of use.
 
@@ -17,60 +17,55 @@ To contribute to the project, follow these steps:
 2. Clone your forked repository to your local machine:
 
     ```shell
-    https://github.com/your-username/planning-poker-minimal.git
+    git clone https://github.com/YOUR_USERNAME/planning-poker-minimal.git
+    cd planning-poker-minimal
     ```
 
-3. Navigate to the project directory:
-
-    ```shell
-    cd your-repo
-    ```
-
-4. Project setup:
+3. Project setup:
 
     ```shell
     yarn
     ```
-5. Compiles and hot-reloads for development:
+4. Compiles and hot-reloads for development:
 
     ```shell
     yarn serve
     ```
-6. Compiles and minifies for production:
+5. Compiles and minifies for production:
 
     ```shell
     yarn build
     ```
-7. Create a new branch for your feature or bug fix:
+6. Create a new branch for your feature or bug fix:
 
     ```shell
     git checkout -b feature/my-feature
     ```
-8. Create a new branch for your feature or bug fix:
+7. Run unit tests:
 
     ```shell
     yarn test:unit
     ```
-9. Make your changes and test thoroughly.
-10. Lints and fixes files:
+8. Make your changes and test thoroughly.
+9. Lint and fix files:
 
     ```shell
     yarn lint
     ```
-12. Commit your changes with descriptive commit messages:
+10. Commit your changes with descriptive commit messages:
 
     ```shell
     git commit -m "Add my awesome feature"
     ```
 
-13. Push your branch to your forked repository:
+11. Push your branch to your forked repository:
 
     ```shell
     git push origin feature/my-feature
     ```
-14. Open a pull request by visiting the original repository and clicking on the 'New Pull Request' button.
-15. Fill in the necessary details and describe your changes.
-16. Submit the pull request, and wait for the project maintainers to review and merge your changes.
+12. Open a pull request by visiting the original repository and clicking on the 'New Pull Request' button.
+13. Fill in the necessary details and describe your changes.
+14. Submit the pull request, and wait for the project maintainers to review and merge your changes.
 
 ## Issues
 

@@ -1,15 +1,39 @@
 <!DOCTYPE html>
-<html lang="">
+<html lang="en">
   <head>
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width,initial-scale=1.0">
+    <title>Planning Poker Minimal — Estimate together, ship with confidence</title>
+    <meta name="description" content="Planning Poker Minimal — free online planning poker for agile teams. No sign-up. Share one link, vote in real time, reveal when ready. Fibonacci, T-shirt, and custom decks.">
+    <meta name="keywords" content="planning poker, agile estimation, story points, sprint planning, scrum, fibonacci, online estimation, free planning poker, real-time voting, team estimation">
+    <meta name="theme-color" content="#0f5132">
+    <link rel="canonical" href="https://planning-pocker-d304c.firebaseapp.com/">
     <link rel="icon" href="<%= BASE_URL %>favicon.ico">
+    <!-- Open Graph (Facebook, LinkedIn, etc.) -->
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="Planning Poker Minimal — Estimate together, ship with confidence">
+    <meta property="og:description" content="Free online planning poker for agile teams. No sign-up required. Share one link, vote in real time.">
+    <meta property="og:url" content="https://planning-pocker-d304c.firebaseapp.com/">
+    <!-- Add public/og-image.png (1200×630) for rich previews on social and Slack -->
+    <meta property="og:image" content="https://planning-pocker-d304c.firebaseapp.com/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:site_name" content="Planning Poker Minimal">
+    <meta property="og:locale" content="en_US">
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Planning Poker Minimal — Estimate together, ship with confidence">
+    <meta name="twitter:description" content="Free online planning poker for agile teams. No sign-up. One link to share, real-time voting.">
+    <meta name="twitter:image" content="https://planning-pocker-d304c.firebaseapp.com/og-image.png">
     <link rel="preconnect" href="https://firebaseapp.com">
     <link rel="preconnect" href="https://firestore.googleapis.com">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <title><%= htmlWebpackPlugin.options.title %></title>
+    <!-- JSON-LD for search engines -->
+    <script type="application/ld+json">
+    {"@context":"https://schema.org","@type":"WebApplication","name":"Planning Poker Minimal","url":"https://planning-pocker-d304c.firebaseapp.com/","description":"Free online planning poker for agile teams. No sign-up. Share one link, vote in real time, reveal when ready. Fibonacci, T-shirt, and custom decks.","applicationCategory":"BusinessApplication","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"operatingSystem":"Any","browserRequirements":"Requires JavaScript. Works in all modern browsers."}
+    </script>
     <style>
       #app-preloader {
         position: fixed;

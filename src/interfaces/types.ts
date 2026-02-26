@@ -28,6 +28,8 @@ export interface Game {
   reveal: boolean;
   users: Member[];
   votingSystem: VotingSystem;
+  /** Current story/ticket being estimated (optional). */
+  currentStory?: string;
 }
 
 export const ALIGN_LEFT = "left";

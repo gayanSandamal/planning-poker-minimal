@@ -6,7 +6,7 @@
       'poker-card--idle': !hasVoted && !disabled,
       'poker-card--disabled': disabled && !hasVoted,
     }"
-    :disabled="disabled || hasVoted"
+    :disabled="disabled || revealed"
     @click="selectCard"
     :aria-pressed="hasVoted"
   >
@@ -24,7 +24,7 @@
 </template>
 
 <script lang="ts" setup>
-import { defineProps, defineEmits, PropType, computed } from "vue";
+import { PropType, computed } from "vue";
 import { Card } from "@/interfaces/types";
 
 const props = defineProps({
@@ -48,8 +48,7 @@ const props = defineProps({
 const emit = defineEmits(["card-selected"]);
 
 const selectCard = () => {
-  debugger;
-  if (!props.disabled) {
+  if (!props.disabled && !props.revealed) {
     emit("card-selected", props.value);
   }
 };
@@ -105,6 +104,11 @@ const hasVoted = computed(() => props.value?.value === props.votedCard);
     cursor: not-allowed;
     transform: scale(0.94);
     box-shadow: none;
+  }
+
+  /* When revealed, selected card stays green but all are non-interactive */
+  &--selected.poker-card--disabled .poker-card-voted-badge {
+    display: none;
   }
 }
 

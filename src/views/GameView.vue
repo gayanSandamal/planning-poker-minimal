@@ -34,6 +34,28 @@
               <h1 class="gv-game-name">
                 {{ gameData?.name || "Planning Session" }}
               </h1>
+              <div v-if="currentStoryEditing" class="gv-current-story-wrap">
+                <input
+                  ref="currentStoryInputRef"
+                  v-model="currentStoryEditValue"
+                  class="gv-current-story-input"
+                  placeholder="What are we voting on?"
+                  @blur="saveCurrentStory"
+                  @keydown.enter="saveCurrentStory"
+                />
+              </div>
+              <p
+                v-else
+                class="gv-current-story"
+                :class="{
+                  'gv-current-story--empty': !currentStoryDisplay,
+                  'gv-current-story--editable': isCurrentUserAdmin,
+                }"
+                @click="startEditCurrentStory"
+              >
+                <i class="bi bi-card-text" aria-hidden="true"></i>
+                {{ currentStoryDisplay || "Add what you’re voting on…" }}
+              </p>
               <span v-if="deckLabel" class="gv-deck-badge">
                 <i class="bi bi-stack" aria-hidden="true"></i>
                 {{ deckLabel }}
@@ -159,6 +181,29 @@
                 </div>
               </div>
             </div>
+            <!-- Vote distribution -->
+            <div
+              v-if="revealed && voteDistribution.length > 0"
+              class="gv-distribution"
+            >
+              <div class="gv-result-label">Vote distribution</div>
+              <div class="gv-distribution-bars">
+                <div
+                  v-for="item in voteDistribution"
+                  :key="item.value"
+                  class="gv-distribution-row"
+                >
+                  <span class="gv-distribution-value">{{ item.value }}</span>
+                  <div class="gv-distribution-bar-wrap">
+                    <div
+                      class="gv-distribution-bar"
+                      :style="{ width: item.percent + '%' }"
+                    ></div>
+                  </div>
+                  <span class="gv-distribution-count">{{ item.count }}</span>
+                </div>
+              </div>
+            </div>
           </div>
         </Transition>
       </div>
@@ -216,6 +261,18 @@
       @submit="copyGameUrl"
     >
       <div class="row">
+        <div class="col-12 mb-3 text-center">
+          <div v-if="qrCodeDataUrl" class="gv-qr-wrap">
+            <img
+              :src="qrCodeDataUrl"
+              alt="QR code to join game"
+              class="gv-qr-img"
+              width="160"
+              height="160"
+            />
+          </div>
+          <p class="gv-qr-hint">Scan to join on another device</p>
+        </div>
         <div class="col-12 mb-4">
           <label for="gameUrl" class="form-label">URL of the game</label>
           <input
@@ -236,7 +293,7 @@
 </template>
 
 <script lang="ts" setup>
-import { ref, computed, watch } from "vue";
+import { ref, computed, watch, onMounted, nextTick } from "vue";
 import { Card, Game, Member } from "@/interfaces/types";
 import CardList from "@/components/CardList.vue";
 import PockerTable from "./../components/PockerTable.vue";
@@ -253,12 +310,19 @@ const route: any = useRoute();
 const store = useStore();
 const toast = useToast();
 
+const DISPLAY_NAME_KEY = "planningPokerDisplayName";
+
 const gamesHttp = new Base(GAME_COLLECTION);
 const gameNotFound = ref(false);
 
+const savedDisplayName =
+  typeof localStorage !== "undefined"
+    ? (localStorage.getItem(DISPLAY_NAME_KEY) ?? "").trim()
+    : "";
+
 const user = ref<Member>({
   id: nanoid(),
-  displayName: "",
+  displayName: savedDisplayName,
   joinAsSpectator: false,
   admin: true,
   vote: "",
@@ -322,12 +386,94 @@ const currentUrl = computed(() => window.location.href);
 const currentTeamMember = ref<Member | undefined>();
 const modal = ref();
 const inviteTeamModal = ref();
+const qrCodeDataUrl = ref("");
+
+watch(
+  currentUrl,
+  async (url) => {
+    if (!url) {
+      qrCodeDataUrl.value = "";
+      return;
+    }
+    try {
+      const QRCode = await import("qrcode");
+      const dataUrl = await QRCode.toDataURL(url, { width: 160, margin: 1 });
+      qrCodeDataUrl.value = dataUrl;
+    } catch {
+      qrCodeDataUrl.value = "";
+    }
+  },
+  { immediate: true }
+);
 
 const deckLabel = computed((): string => {
   const label: string = gameData.value?.votingSystem?.label ?? "";
   if (!label) return "";
   const match = label.match(/^([^(]+)/);
   return match ? match[1].trim() : label;
+});
+
+const currentStoryDisplay = computed(() =>
+  (gameData.value?.currentStory ?? "").trim()
+);
+const currentStoryEditing = ref(false);
+const currentStoryEditValue = ref("");
+const currentStoryInputRef = ref<HTMLInputElement | null>(null);
+const isCurrentUserAdmin = computed(
+  () => currentTeamMember.value?.admin === true
+);
+
+function startEditCurrentStory() {
+  if (!isCurrentUserAdmin.value) return;
+  currentStoryEditValue.value = currentStoryDisplay.value;
+  currentStoryEditing.value = true;
+  nextTick(() => currentStoryInputRef.value?.focus());
+}
+
+async function saveCurrentStory() {
+  currentStoryEditing.value = false;
+  const val = currentStoryEditValue.value.trim();
+  if (val === currentStoryDisplay.value) return;
+  try {
+    await gamesHttp.setDoc(route.params.id, { currentStory: val || "" });
+  } catch {
+    await toast.error("Failed to update story.");
+  }
+}
+
+/** Vote distribution after reveal: { value, count, percent }[] */
+const voteDistribution = computed(() => {
+  if (!revealed.value) return [];
+  const voters = teamMembers.value.filter((m: Member) => !m.joinAsSpectator);
+  if (voters.length === 0) return [];
+  const counts: Record<string, number> = {};
+  for (const m of voters) {
+    const v = m.vote ?? "—";
+    counts[v] = (counts[v] ?? 0) + 1;
+  }
+  const total = voters.length;
+  const pattern = gameData.value?.votingSystem?.pattern ?? [];
+  const numericPattern = pattern
+    .map((s: string) => Number(s))
+    .every((n: number) => !Number.isNaN(n));
+  const entries = Object.entries(counts).map(([value, count]) => ({
+    value,
+    count,
+    percent: total > 0 ? (count / total) * 100 : 0,
+  }));
+  entries.sort((a, b) => {
+    if (numericPattern) return Number(a.value) - Number(b.value);
+    return String(a.value).localeCompare(String(b.value));
+  });
+  return entries;
+});
+
+const perfectConsensus = computed(() => {
+  if (!revealed.value || voteDistribution.value.length !== 1) return false;
+  return (
+    voteDistribution.value[0].count ===
+    teamMembers.value.filter((m: Member) => !m.joinAsSpectator).length
+  );
 });
 
 const cards = computed((): Card[] => {
@@ -379,12 +525,21 @@ const reset = async () => {
 
 let justStarted = false;
 const continueToGame = async () => {
+  const name = user.value.displayName.trim();
+  if (name && typeof localStorage !== "undefined") {
+    localStorage.setItem(DISPLAY_NAME_KEY, name);
+  }
   if (teamMembers.value.length > 0) user.value.admin = false;
-  const users: Member[] = [...teamMembers.value, ...[user.value]];
+  const newUsers: Member[] = [...teamMembers.value, user.value];
   try {
-    await gamesHttp.setDoc(route.params.id, { users });
+    await gamesHttp.setDoc(route.params.id, { users: newUsers });
     store.dispatch("setUserId", user.value.id);
+    store.dispatch("setGameData", {
+      ...gameData.value,
+      users: newUsers,
+    } as Game);
     justStarted = true;
+    currentTeamMember.value = user.value;
     if (modal.value) modal.value.toggle();
   } catch {
     await toast.error(
@@ -450,6 +605,34 @@ watch(
   },
   { deep: true }
 );
+
+watch(
+  () => revealed.value,
+  async (isRevealed) => {
+    if (!isRevealed) return;
+    await nextTick();
+    if (perfectConsensus.value) {
+      try {
+        const confetti = (await import("canvas-confetti")).default;
+        confetti({
+          particleCount: 80,
+          spread: 60,
+          origin: { y: 0.7 },
+        });
+      } catch {
+        // canvas-confetti not installed
+      }
+    }
+  }
+);
+
+onMounted(() => {
+  window.addEventListener("sw-update", () => {
+    toast.success("New version available! Refresh to update.", {
+      autoClose: 0,
+    });
+  });
+});
 </script>
 
 <style lang="scss" scoped>
@@ -591,6 +774,138 @@ watch(
   color: #1a1a1a;
   margin: 0;
   letter-spacing: -0.01em;
+}
+
+.gv-current-story-wrap {
+  width: 100%;
+  max-width: 20rem;
+}
+
+.gv-current-story-input {
+  width: 100%;
+  padding: 0.35rem 0.5rem;
+  font-size: 0.875rem;
+  font-family: inherit;
+  border: 1px solid rgba(15, 81, 50, 0.3);
+  border-radius: 8px;
+  outline: none;
+  background: #fff;
+
+  &:focus {
+    border-color: #0f5132;
+    box-shadow: 0 0 0 2px rgba(25, 135, 84, 0.2);
+  }
+}
+
+.gv-current-story {
+  font-size: 0.875rem;
+  color: #4a5568;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  cursor: default;
+
+  .bi {
+    color: #198754;
+    flex-shrink: 0;
+  }
+
+  &.gv-current-story--empty {
+    color: #9ca3af;
+    cursor: pointer;
+
+    &:hover {
+      color: #0f5132;
+    }
+  }
+
+  &.gv-current-story--editable {
+    cursor: pointer;
+
+    &:hover {
+      color: #0f5132;
+    }
+  }
+}
+
+/* Vote distribution */
+.gv-distribution {
+  width: 100%;
+  max-width: 640px;
+  margin-top: 1rem;
+  padding: 1.25rem 1.5rem;
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.07);
+  border-radius: 18px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+}
+
+.gv-distribution .gv-result-label {
+  margin-bottom: 1rem;
+}
+
+.gv-distribution-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.gv-distribution-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.875rem;
+}
+
+.gv-distribution-value {
+  min-width: 2.5rem;
+  font-weight: 700;
+  color: #0f5132;
+}
+
+.gv-distribution-bar-wrap {
+  flex: 1;
+  height: 1.5rem;
+  background: rgba(15, 81, 50, 0.1);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.gv-distribution-bar {
+  height: 100%;
+  background: linear-gradient(90deg, #198754, #20c997);
+  border-radius: 8px;
+  min-width: 4px;
+  transition: width 0.4s ease;
+}
+
+.gv-distribution-count {
+  min-width: 2rem;
+  font-weight: 600;
+  color: #6c757d;
+  text-align: right;
+}
+
+/* Invite modal QR */
+.gv-qr-wrap {
+  display: inline-block;
+  padding: 0.75rem;
+  background: #fff;
+  border-radius: 12px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  margin-bottom: 0.5rem;
+}
+
+.gv-qr-img {
+  display: block;
+  border-radius: 6px;
+}
+
+.gv-qr-hint {
+  font-size: 0.8125rem;
+  color: #6c757d;
+  margin: 0;
 }
 
 .gv-deck-badge {

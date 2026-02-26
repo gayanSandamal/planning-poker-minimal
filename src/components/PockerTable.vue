@@ -39,6 +39,14 @@
         role="listitem"
       >
         <div
+          class="pt-player-avatar"
+          :style="{ backgroundColor: avatarColor(player.displayName) }"
+          :title="player.displayName"
+          aria-hidden="true"
+        >
+          {{ getInitials(player.displayName) }}
+        </div>
+        <div
           class="pt-player-card"
           :class="{
             'pt-player-card--voted': !revealed && playerHasVoted(player),
@@ -65,6 +73,9 @@
         </div>
         <span class="pt-player-name" :title="player.displayName">
           {{ player.displayName }}
+          <span v-if="player.admin" class="pt-player-host" title="Host">
+            <i class="bi bi-star-fill" aria-hidden="true"></i>
+          </span>
         </span>
       </div>
     </div>
@@ -78,7 +89,7 @@
 </template>
 
 <script lang="ts" setup>
-import { defineEmits, defineProps, PropType, computed } from "vue";
+import { PropType, computed } from "vue";
 import { Member } from "@/interfaces/types";
 
 const props = defineProps({
@@ -91,10 +102,12 @@ const props = defineProps({
     required: true,
   },
   votedCard: {
-    type: Object as PropType<string>,
+    type: String,
+    default: undefined,
   },
   revealed: {
-    type: Boolean as PropType<boolean>,
+    type: Boolean,
+    default: false,
   },
 });
 
@@ -118,6 +131,26 @@ const getPlayerVote = (i: number): string => {
 
 const reveal = () => emit("reveal");
 const reset = () => emit("reset");
+
+function getInitials(name: string): string {
+  const s = (name || "").trim();
+  if (!s) return "?";
+  const parts = s.split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) {
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase().slice(0, 2);
+  }
+  return s.slice(0, 2).toUpperCase();
+}
+
+function avatarColor(name: string): string {
+  let h = 0;
+  for (let i = 0; i < (name || "").length; i++) {
+    h = (h << 5) - h + (name || "").charCodeAt(i);
+    h |= 0;
+  }
+  const hue = Math.abs(h % 360);
+  return `hsl(${hue}, 45%, 40%)`;
+}
 </script>
 
 <style scoped lang="scss">
@@ -251,6 +284,21 @@ const reset = () => emit("reset");
   min-width: 56px;
 }
 
+.pt-player-avatar {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.625rem;
+  font-weight: 700;
+  color: #fff;
+  flex-shrink: 0;
+  line-height: 1;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
 .pt-player-card {
   width: 3.25rem;
   height: 4.5rem;
@@ -342,6 +390,17 @@ const reset = () => emit("reset");
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  justify-content: center;
+}
+
+.pt-player-host {
+  color: #f59e0b;
+  font-size: 0.5rem;
+  flex-shrink: 0;
+  display: inline-flex;
 }
 
 /* ── Empty ──────────────────────────────────────── */

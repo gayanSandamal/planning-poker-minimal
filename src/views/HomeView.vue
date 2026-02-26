@@ -14,7 +14,7 @@
         <div class="container">
           <div class="about-grid">
             <div class="about-visual">
-              <IconWidget icon="APPS" size="xl" />
+              <LiveGamePreview />
             </div>
             <div class="about-content">
               <span class="section-label">About</span>
@@ -91,62 +91,19 @@
             </h2>
           </div>
           <div class="features-grid">
-            <div class="feature-card-modern">
+            <div
+              class="feature-card-modern"
+              v-for="feat in features"
+              :key="feat.title"
+            >
               <div class="feature-icon-wrap">
-                <i class="bi bi-calendar-check" aria-hidden="true"></i>
+                <i :class="['bi', feat.icon]" aria-hidden="true"></i>
               </div>
-              <h3 class="feature-title">Efficient task estimation</h3>
-              <IconWidget icon="EFFICIENT" class="feature-visual my-3" />
-              <p class="feature-desc">
-                Use Planning Poker to estimate complexity accurately and
-                consistently.
-              </p>
-            </div>
-            <div class="feature-card-modern">
-              <div class="feature-icon-wrap">
-                <i
-                  class="bi bi-layout-text-window-reverse"
-                  aria-hidden="true"
-                ></i>
+              <h3 class="feature-title">{{ feat.title }}</h3>
+              <div class="feature-visual-area" aria-hidden="true">
+                <component :is="feat.visual" v-bind="feat.visualProps" />
               </div>
-              <h3 class="feature-title">User-friendly interface</h3>
-              <IconWidget icon="DOG" class="feature-visual my-3" />
-              <p class="feature-desc">
-                A clean, intuitive UI so your team can focus on the discussion,
-                not the tool.
-              </p>
-            </div>
-            <div class="feature-card-modern">
-              <div class="feature-icon-wrap">
-                <i class="bi bi-chat-dots" aria-hidden="true"></i>
-              </div>
-              <h3 class="feature-title">Real-time collaboration</h3>
-              <IconWidget icon="REALTIME" class="feature-visual my-3" />
-              <p class="feature-desc">
-                Collaborate in real time—votes and reveals sync instantly for
-                everyone.
-              </p>
-            </div>
-            <div class="feature-card-modern">
-              <div class="feature-icon-wrap">
-                <i class="bi bi-card-checklist" aria-hidden="true"></i>
-              </div>
-              <h3 class="feature-title">Flexible card deck</h3>
-              <IconWidget icon="CARDS" class="feature-visual my-3" />
-              <p class="feature-desc">
-                Choose Fibonacci, T-shirt sizes, or define your own custom deck.
-              </p>
-            </div>
-            <div class="feature-card-modern feature-card-modern--wide">
-              <div class="feature-icon-wrap">
-                <i class="bi bi-shield-check" aria-hidden="true"></i>
-              </div>
-              <h3 class="feature-title">Secure and reliable</h3>
-              <IconWidget icon="RELEABLE" class="feature-visual my-3" />
-              <p class="feature-desc">
-                Your data is safe and the app is built to stay up when you need
-                it.
-              </p>
+              <p class="feature-desc">{{ feat.desc }}</p>
             </div>
           </div>
         </div>
@@ -197,7 +154,48 @@
 import { ref, onMounted, nextTick, onUnmounted } from "vue";
 import HeroBanner from "@/components/HeroBanner.vue";
 import HomeViewSkeleton from "@/components/HomeViewSkeleton.vue";
-import IconWidget from "@/components/IconWidget.vue";
+import LiveGamePreview from "@/components/LiveGamePreview.vue";
+import FeatureEstimation from "@/components/FeatureEstimation.vue";
+import FeatureRealtime from "@/components/FeatureRealtime.vue";
+import FeatureDeck from "@/components/FeatureDeck.vue";
+
+const features = [
+  {
+    icon: "bi-calendar-check",
+    title: "Efficient task estimation",
+    desc: "Use Planning Poker to estimate complexity accurately and consistently. Average, nearest-in-deck, and vote spread — all at a glance.",
+    visual: FeatureEstimation,
+    visualProps: {},
+  },
+  {
+    icon: "bi-chat-dots",
+    title: "Real-time collaboration",
+    desc: "Collaborate in real time—votes and reveals sync instantly for everyone. See who voted and who is still thinking.",
+    visual: FeatureRealtime,
+    visualProps: {},
+  },
+  {
+    icon: "bi-card-checklist",
+    title: "Flexible card deck",
+    desc: "Choose Fibonacci, Modified Fibonacci, T-shirt sizes, Powers of 2, or define your own custom values to fit any team.",
+    visual: FeatureDeck,
+    visualProps: {},
+  },
+  {
+    icon: "bi-layout-text-window-reverse",
+    title: "Zero friction UX",
+    desc: "No accounts, no installs. Share one link and your team is in — from any device, any browser, in seconds.",
+    visual: FeatureEstimation,
+    visualProps: { variant: "link" },
+  },
+  {
+    icon: "bi-shield-check",
+    title: "Secure and reliable",
+    desc: "Powered by Firebase Firestore — data syncs in milliseconds with enterprise-grade reliability and automatic backups.",
+    visual: FeatureRealtime,
+    visualProps: { variant: "shield" },
+  },
+];
 
 const steps = [
   {
@@ -576,12 +574,7 @@ onUnmounted(() => {
 
   @media (min-width: 992px) {
     grid-template-columns: repeat(3, 1fr);
-    grid-template-rows: auto auto;
     gap: 1.25rem;
-
-    .feature-card-modern--wide {
-      grid-column: span 2;
-    }
   }
 }
 
@@ -597,11 +590,11 @@ onUnmounted(() => {
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
     transform: translateY(-2px);
   }
+}
 
-  // Force feature SVGs to use brand color so light-filled icons (e.g. RELEABLE) are visible on white
-  :deep(.icon-wrapper) {
-    min-height: 140px;
-  }
+.feature-visual-area {
+  min-height: 120px;
+  margin: 0.875rem 0 0.5rem;
 }
 
 .feature-icon-wrap {

@@ -199,6 +199,7 @@ const form = ref<Game>({
   votingSystem: votingSystems[0],
   users: [],
   reveal: false,
+  currentStory: "",
 });
 
 const deck = ref<CustomDeck>({

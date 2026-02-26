@@ -8,10 +8,12 @@
       <div class="hero-badge" aria-hidden="true">
         Agile estimation · No sign-up required
       </div>
-      <div
-        class="d-flex justify-content-center hero-svg-wrap"
-        v-html="heroSvg"
-      ></div>
+
+      <!-- Animated card visual -->
+      <div class="hero-visual">
+        <HeroCards />
+      </div>
+
       <h1 class="hero-title">
         Estimate together.<br />
         <span class="hero-title-accent">Ship with confidence.</span>
@@ -22,6 +24,7 @@
       </p>
       <div class="hero-actions">
         <router-link class="btn-hero btn-hero--primary" to="/new-game">
+          <i class="bi bi-play-fill" aria-hidden="true"></i>
           Start a game
         </router-link>
         <a class="btn-hero btn-hero--secondary" href="#how-it-works">
@@ -32,17 +35,14 @@
   </header>
 </template>
 
-<script setup>
-import { ref } from "vue";
-import { HERO } from "@/assets/graphics/hero";
-
-const heroSvg = ref(HERO);
+<script setup lang="ts">
+import HeroCards from "@/components/HeroCards.vue";
 </script>
 
 <style lang="scss" scoped>
 .landing-hero {
   position: relative;
-  min-height: 520px;
+  min-height: 580px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -100,17 +100,13 @@ const heroSvg = ref(HERO);
   background: rgba(25, 135, 84, 0.12);
   padding: 0.4rem 0.9rem;
   border-radius: 100px;
-  margin-bottom: 1.5rem;
+  margin-bottom: 1rem;
 }
 
-.hero-svg-wrap {
-  min-height: 280px;
-  margin-bottom: 0.5rem;
-  :deep(svg) {
-    max-width: 640px;
-    width: 100%;
-    height: auto;
-  }
+.hero-visual {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 1rem;
 }
 
 .hero-title {
@@ -145,6 +141,7 @@ const heroSvg = ref(HERO);
 .btn-hero {
   display: inline-flex;
   align-items: center;
+  gap: 0.4rem;
   justify-content: center;
   font-size: 1rem;
   font-weight: 600;

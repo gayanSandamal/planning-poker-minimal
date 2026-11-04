@@ -6,22 +6,40 @@
   >
     <div class="container">
       <div class="recent-head">
-        <h2 id="recent-games-heading" class="recent-title">
-          <i class="bi bi-clock-history" aria-hidden="true"></i>
-          Pick up where you left off
-        </h2>
+        <div>
+          <h2 id="recent-games-heading" class="recent-title">
+            <span v-if="profile.avatar" aria-hidden="true">{{
+              profile.avatar
+            }}</span>
+            <i v-else class="bi bi-clock-history" aria-hidden="true"></i>
+            {{
+              profile.displayName
+                ? `Welcome back, ${profile.displayName}!`
+                : "Pick up where you left off"
+            }}
+          </h2>
+          <p v-if="profile.displayName" class="recent-sub">
+            Pick up where you left off — your team is one click away.
+          </p>
+        </div>
         <router-link to="/new-game" class="recent-new">
           <i class="bi bi-plus-lg" aria-hidden="true"></i>
           New game
         </router-link>
       </div>
       <ul class="recent-list">
-        <li v-for="game in recentGames" :key="game.id" class="recent-item">
+        <li
+          v-for="(game, i) in recentGames"
+          :key="game.id"
+          class="recent-item"
+          :class="{ 'recent-item--latest': i === 0 }"
+        >
           <router-link
             :to="`/${game.id}`"
             class="recent-link"
             @click="opened(game.id)"
           >
+            <span v-if="i === 0" class="recent-badge">Last played</span>
             <span class="recent-name">{{ game.name }}</span>
             <span class="recent-meta">
               <span v-if="game.deck">{{ game.deck }} · </span>
@@ -47,12 +65,17 @@
 <script lang="ts" setup>
 import { useRecentGames, timeAgo } from "@/composables/useRecentGames";
 import { track } from "@/analytics";
+import { loadProfile } from "@/composables/useProfile";
 
 const { recentGames, forget } = useRecentGames();
+const profile = loadProfile();
 
 const opened = (id: string) => {
   const position = recentGames.value.findIndex((g) => g.id === id) + 1;
-  void track("recent_game_opened", { position });
+  void track("recent_game_opened", {
+    position,
+    returning: profile.displayName !== "",
+  });
 };
 </script>
 
@@ -82,6 +105,29 @@ const opened = (id: string) => {
   i {
     color: #0f5132;
   }
+}
+
+.recent-sub {
+  margin: 0.25rem 0 0;
+  font-size: 0.875rem;
+  color: #6b7280;
+}
+
+.recent-item--latest {
+  border-color: rgba(15, 81, 50, 0.35);
+  box-shadow: 0 6px 20px rgba(15, 81, 50, 0.1);
+}
+
+.recent-badge {
+  align-self: flex-start;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #0f5132;
+  background: rgba(25, 135, 84, 0.1);
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
 }
 
 .recent-new {

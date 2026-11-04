@@ -27,6 +27,8 @@ export default createStore({
           joinAsSpectator: user.joinAsSpectator,
           admin: user.admin,
           vote: user.vote ?? "",
+          pronouns: user.pronouns ?? "",
+          avatar: user.avatar ?? "",
         };
       });
     },

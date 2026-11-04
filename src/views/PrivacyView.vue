@@ -54,18 +54,20 @@
       <section class="privacy-card" aria-labelledby="pv-games">
         <h2 id="pv-games">Games</h2>
         <p>
-          A game's name, current story, the display names of players and their
-          votes are stored in Google Cloud Firestore so everyone in the game
-          sees them in real time. Anyone with a game's link can open it, so only
-          share links with your team. Games can't be listed or searched.
+          A game's name, current story, the display names of players (with any
+          avatar and pronouns they choose), their votes and cheers are stored in
+          Google Cloud Firestore so everyone in the game sees them in real time.
+          Anyone with a game's link can open it, so only share links with your
+          team. Games can't be listed or searched.
         </p>
       </section>
 
       <section class="privacy-card" aria-labelledby="pv-device">
         <h2 id="pv-device">On your device</h2>
         <p>
-          Your browser keeps your display name, the games you recently opened,
-          and your analytics choice, so you don't have to set them again. A
+          Your browser keeps your display name, avatar and pronouns, the games
+          you recently opened, and your analytics choice, so you don't have to
+          set them again. A
           <code>userId</code> cookie remembers which player you are in a game
           for 7 days. None of this leaves your device except as described above.
         </p>

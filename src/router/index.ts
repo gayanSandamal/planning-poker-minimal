@@ -6,6 +6,7 @@ import {
   type RouteRecordRaw,
 } from "vue-router";
 import { ensureFirebase } from "@/firebase/init";
+import { trackPageView } from "@/analytics";
 
 const firebaseGuard = async (
   _to: RouteLocationNormalized,
@@ -35,6 +36,13 @@ const routes: Array<RouteRecordRaw> = [
       import(/* webpackChunkName: "about" */ "../views/AboutView.vue"),
   },
   {
+    path: "/privacy",
+    name: "privacy",
+    meta: { title: "Privacy & cookies — Planning Poker Minimal" },
+    component: () =>
+      import(/* webpackChunkName: "privacy" */ "../views/PrivacyView.vue"),
+  },
+  {
     path: "/:id",
     name: "game",
     meta: { title: "Game — Planning Poker Minimal" },
@@ -61,6 +69,7 @@ router.afterEach((to: RouteLocationNormalized) => {
   const meta = to.meta as Record<string, unknown> | undefined;
   const title = (meta?.title as string) ?? DEFAULT_TITLE;
   document.title = title;
+  void trackPageView(to.path, title, to.name as string | undefined);
 });
 
 export default router;

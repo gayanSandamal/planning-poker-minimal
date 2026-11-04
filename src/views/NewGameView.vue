@@ -159,6 +159,7 @@ import { Base, GAME_COLLECTION } from "@/firebase/fb.api";
 import { useRouter } from "vue-router";
 import { CustomDeck, Game, VotingSystem } from "@/interfaces/types";
 import { useToast } from "@/composables/useToast";
+import { track } from "@/analytics";
 
 const gamesHttp = new Base(GAME_COLLECTION);
 const router = useRouter();
@@ -236,6 +237,9 @@ const cancelCustomDeckCreate = () =>
 const onSubmit = async () => {
   try {
     const gameDoc = await gamesHttp.addDoc(form.value);
+    void track("game_created", {
+      deck: deckShortName(form.value.votingSystem),
+    });
     router.push({ path: `/${gameDoc.id}` });
   } catch {
     await toast.error(

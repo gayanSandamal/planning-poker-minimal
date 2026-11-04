@@ -153,14 +153,21 @@
       </div>
     </header>
     <main class="app-main">
-      <router-view />
+      <!-- Keyed so /gameA → /gameB starts with fresh join state. -->
+      <router-view :key="route.path" />
     </main>
+    <ConsentBanner />
+    <InstallPrompt />
     <footer class="footer">
       <div class="container">
         <p class="text-center">
           &copy; {{ year }} Planning Poker Minimal. All rights reserved. v{{
             version
           }}
+          ·
+          <router-link to="/privacy" class="footer-link"
+            >Privacy &amp; cookies</router-link
+          >
         </p>
       </div>
     </footer>
@@ -171,6 +178,8 @@
 import { ref, computed, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useStore } from "vuex";
+import ConsentBanner from "@/components/ConsentBanner.vue";
+import InstallPrompt from "@/components/InstallPrompt.vue";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const route: any = useRoute();
@@ -588,6 +597,15 @@ html {
     font-size: 0.875rem;
     color: rgba(255, 255, 255, 0.65);
     margin: 0;
+  }
+  .footer-link {
+    color: rgba(255, 255, 255, 0.85);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+
+    &:hover {
+      color: #fff;
+    }
   }
 }
 </style>

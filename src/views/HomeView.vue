@@ -8,6 +8,7 @@
       :class="{ 'home-view-content--visible': contentReady }"
     >
       <HeroBanner />
+      <RecentGames />
 
       <!-- About -->
       <section id="about" class="landing-section landing-section--light">
@@ -153,6 +154,7 @@
 <script lang="ts" setup>
 import { ref, onMounted, nextTick, onUnmounted } from "vue";
 import HeroBanner from "@/components/HeroBanner.vue";
+import RecentGames from "@/components/RecentGames.vue";
 import HomeViewSkeleton from "@/components/HomeViewSkeleton.vue";
 import LiveGamePreview from "@/components/LiveGamePreview.vue";
 import FeatureEstimation from "@/components/FeatureEstimation.vue";

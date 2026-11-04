@@ -16,6 +16,12 @@ service cloud.firestore {
         || (data.currentStory is string && data.currentStory.size() <= 500);
     }
 
+    // Pointer to a follow-up game ("play again with the same deck").
+    function isValidNextGame(data) {
+      return !('nextGameId' in data)
+        || (data.nextGameId is string && data.nextGameId.size() <= 40);
+    }
+
     function isValidVotingSystem(vs) {
       return vs is map
         && (!('pattern' in vs) || (vs.pattern is list && vs.pattern.size() <= 50));
@@ -39,10 +45,11 @@ service cloud.firestore {
 
       // Gameplay only touches these fields; name and deck stay fixed.
       allow update: if request.resource.data.diff(resource.data).affectedKeys()
-            .hasOnly(['reveal', 'users', 'currentStory'])
+            .hasOnly(['reveal', 'users', 'currentStory', 'nextGameId'])
         && request.resource.data.reveal is bool
         && isValidUsers(request.resource.data.users)
-        && isValidStory(request.resource.data);
+        && isValidStory(request.resource.data)
+        && isValidNextGame(request.resource.data);
 
       allow delete: if false;
     }

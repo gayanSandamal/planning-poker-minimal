@@ -85,6 +85,21 @@
 
       <!-- Main content -->
       <div class="container gv-content">
+        <!-- Someone started a follow-up game -->
+        <div v-if="nextGameId" class="gv-next-banner" role="status">
+          <i class="bi bi-arrow-repeat" aria-hidden="true"></i>
+          <span class="gv-next-banner-text"
+            >A new game with the same deck has started.</span
+          >
+          <button
+            type="button"
+            class="gv-btn gv-btn--primary gv-btn--sm"
+            @click="followNextGame"
+          >
+            Join the new game
+          </button>
+        </div>
+
         <!-- Poker table -->
         <div class="gv-table-wrap">
           <PockerTable
@@ -204,6 +219,27 @@
                 </div>
               </div>
             </div>
+            <!-- Keep the momentum: share, or start the next session -->
+            <div class="gv-results-actions">
+              <button
+                type="button"
+                class="gv-btn gv-btn--outline"
+                @click="shareResults"
+              >
+                <i class="bi bi-share" aria-hidden="true"></i>
+                Share results
+              </button>
+              <button
+                v-if="isCurrentUserAdmin && !nextGameId"
+                type="button"
+                class="gv-btn gv-btn--outline"
+                :disabled="startingNext"
+                @click="playAgain"
+              >
+                <i class="bi bi-arrow-repeat" aria-hidden="true"></i>
+                {{ startingNext ? "Starting…" : "New game, same deck" }}
+              </button>
+            </div>
           </div>
         </Transition>
       </div>
@@ -297,7 +333,7 @@ import { ref, computed, watch, onMounted, onUnmounted, nextTick } from "vue";
 import { Card, Game, Member } from "@/interfaces/types";
 import CardList from "@/components/CardList.vue";
 import PockerTable from "./../components/PockerTable.vue";
-import { useRoute } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 import {
   db,
   Base,
@@ -305,7 +341,12 @@ import {
   castVote,
   joinGame,
   resetRound,
+  startNextGame,
 } from "@/firebase/fb.api";
+import { track } from "@/analytics";
+import { useRecentGames } from "@/composables/useRecentGames";
+import { usePwaInstall } from "@/composables/usePwaInstall";
+import { copyText } from "@/composables/copyText";
 import { doc, onSnapshot } from "firebase/firestore";
 import ModalContainer from "@/components/ModalContainer.vue";
 import { nanoid } from "nanoid";
@@ -314,8 +355,11 @@ import { useToast } from "@/composables/useToast";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const route: any = useRoute();
+const router = useRouter();
 const store = useStore();
 const toast = useToast();
+const { remember: rememberGame, forget: forgetGame } = useRecentGames();
+const { offer: offerInstall } = usePwaInstall();
 
 const DISPLAY_NAME_KEY = "planningPokerDisplayName";
 
@@ -500,6 +544,7 @@ const recordVote = async (vote: Card) => {
     // Optimistic local update; the snapshot listener brings in the server truth.
     currentTeamMember.value.vote = vote.value;
     await castVote(route.params.id, currentTeamMember.value.id, vote.value);
+    void track("vote_cast", { deck: deckLabel.value });
   } catch {
     await toast.error(
       "Failed to save your vote. Check your connection and try again."
@@ -510,6 +555,11 @@ const recordVote = async (vote: Card) => {
 const reveal = async () => {
   try {
     await gamesHttp.setDoc(route.params.id, { reveal: true });
+    void track("cards_revealed", {
+      players: teamMembers.value.filter((m: Member) => !m.joinAsSpectator)
+        .length,
+      deck: deckLabel.value,
+    });
   } catch {
     await toast.error(
       "Failed to reveal cards. Check your connection and try again."
@@ -521,6 +571,7 @@ const reset = async () => {
   try {
     store.dispatch("resetVotes", route.params.id);
     await resetRound(route.params.id);
+    void track("round_reset");
   } catch {
     await toast.error(
       "Failed to reset round. Check your connection and try again."
@@ -539,6 +590,10 @@ const continueToGame = async () => {
   try {
     await joinGame(route.params.id, user.value);
     store.dispatch("setUserId", user.value.id);
+    void track("game_joined", {
+      as_spectator: user.value.joinAsSpectator,
+      deck: deckLabel.value,
+    });
     store.dispatch("setGameData", {
       ...gameData.value,
       users: newUsers,
@@ -555,8 +610,9 @@ const continueToGame = async () => {
 
 const copyGameUrl = async () => {
   try {
-    await navigator.clipboard.writeText(currentUrl.value);
+    await copyText(currentUrl.value);
     store.dispatch("setInviteModalState", false);
+    void track("invite_copied");
     await toast.success("Copied to clipboard", { autoClose: 1000 });
   } catch {
     await toast.error("Could not copy to clipboard. Copy the URL manually.");
@@ -575,6 +631,83 @@ const setNewUserModalState = () => {
   }
 };
 
+/* ── Play again with the same deck ───────────────── */
+const nextGameId = computed(
+  (): string => (gameData.value?.nextGameId as string | undefined) ?? ""
+);
+const startingNext = ref(false);
+
+const playAgain = async () => {
+  if (!gameData.value || startingNext.value) return;
+  startingNext.value = true;
+  try {
+    const id = await startNextGame(route.params.id, {
+      name: gameData.value.name,
+      votingSystem: gameData.value.votingSystem,
+    });
+    void track("play_again", { deck: deckLabel.value });
+    await router.push(`/${id}`);
+  } catch {
+    await toast.error("Couldn't start a new game. Try again.");
+  } finally {
+    startingNext.value = false;
+  }
+};
+
+const followNextGame = () => {
+  void track("next_game_followed");
+  router.push(`/${nextGameId.value}`);
+};
+
+/* ── Share round results ─────────────────────────── */
+const SHARE_URL =
+  "https://planning-pocker-d304c.firebaseapp.com/?utm_source=share&utm_medium=results";
+
+const resultsSummary = (): string => {
+  const lines: string[] = [`🃏 ${gameData.value?.name ?? "Planning Poker"}`];
+  if (currentStoryDisplay.value)
+    lines.push(`Story: ${currentStoryDisplay.value}`);
+  const voters = teamMembers.value.filter((m: Member) => !m.joinAsSpectator);
+  lines.push(
+    "Votes: " +
+      voters.map((m: Member) => `${m.displayName} ${m.vote || "—"}`).join(" · ")
+  );
+  if (isNumericVoting.value) {
+    let line = `Average: ${averageAgreement.value}`;
+    if (showNearestInDeck.value)
+      line += ` · Nearest in deck: ${nearestInDeck.value}`;
+    lines.push(line);
+  } else if (consensus.value) {
+    lines.push(
+      `Consensus: ${consensus.value.value} (${consensus.value.count} of ${consensus.value.total})`
+    );
+  }
+  lines.push("", `Estimated with Planning Poker Minimal — ${SHARE_URL}`);
+  return lines.join("\n");
+};
+
+const shareResults = async () => {
+  const text = resultsSummary();
+  const canNativeShare =
+    typeof navigator.share === "function" &&
+    window.matchMedia?.("(pointer: coarse)").matches;
+  try {
+    if (canNativeShare) {
+      await navigator.share({ text });
+      void track("results_shared", { method: "share_sheet" });
+      return;
+    }
+    await copyText(text);
+    void track("results_shared", { method: "clipboard" });
+    await toast.success("Results copied — paste them in Slack or Jira", {
+      autoClose: 2000,
+    });
+  } catch (err) {
+    if ((err as DOMException)?.name === "AbortError") return; // closed share sheet
+    await toast.error("Couldn't copy results. Try again.");
+  }
+};
+
 const subscribeToGame = (gameId: string) =>
   onSnapshot(
     doc(db, GAME_COLLECTION, gameId),
@@ -582,9 +715,16 @@ const subscribeToGame = (gameId: string) =>
       if (!snapshot.exists()) {
         gameNotFound.value = true;
         store.dispatch("setGameData", null);
+        forgetGame(gameId);
       } else {
         gameNotFound.value = false;
-        store.dispatch("setGameData", snapshot.data() as Game);
+        const data = snapshot.data() as Game;
+        store.dispatch("setGameData", data);
+        rememberGame({
+          id: gameId,
+          name: data.name ?? "Untitled game",
+          deck: (data.votingSystem?.label ?? "").split("(")[0].trim(),
+        });
       }
     },
     (err) => {
@@ -627,6 +767,7 @@ watch(
   () => revealed.value,
   async (isRevealed) => {
     if (!isRevealed) return;
+    offerInstall();
     await nextTick();
     if (perfectConsensus.value) {
       try {
@@ -756,6 +897,56 @@ onUnmounted(() => {
       color: #0f5132;
     }
   }
+
+  &--sm {
+    padding: 0.45rem 0.9rem;
+    font-size: 0.875rem;
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    transform: none;
+    cursor: default;
+  }
+}
+
+button.gv-btn {
+  border: none;
+  cursor: pointer;
+
+  &.gv-btn--outline {
+    border: 1.5px solid rgba(15, 81, 50, 0.25);
+  }
+}
+
+.gv-results-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.75rem;
+  margin-top: 1.25rem;
+}
+
+.gv-next-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.625rem 0.875rem;
+  margin: 1rem 0 0;
+  padding: 0.75rem 1rem;
+  background: rgba(25, 135, 84, 0.08);
+  border: 1px solid rgba(25, 135, 84, 0.25);
+  border-radius: 14px;
+  color: #0f5132;
+  font-weight: 600;
+
+  > i {
+    font-size: 1.125rem;
+  }
+}
+
+.gv-next-banner-text {
+  flex: 1 1 200px;
 }
 
 /* ── Active Game ───────────────────────────────── */

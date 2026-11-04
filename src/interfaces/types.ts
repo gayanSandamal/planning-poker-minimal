@@ -9,7 +9,17 @@ export interface Member {
   joinAsSpectator: boolean;
   admin: boolean;
   vote: string;
+  /** Optional, shown next to the name (e.g. "she/her"). */
+  pronouns?: string;
+  /** Optional emoji shown instead of initials. */
+  avatar?: string;
 }
+
+/** Kinds of cheers players can give each other after a reveal. */
+export type ReactionKind = "agree" | "celebrate" | "insight";
+
+/** target player id → reaction kind → ids of players who reacted. */
+export type Reactions = Record<string, Partial<Record<ReactionKind, string[]>>>;
 
 export interface VotingSystem {
   id: number;
@@ -32,6 +42,8 @@ export interface Game {
   currentStory?: string;
   /** Set when someone starts a follow-up game with the same deck. */
   nextGameId?: string;
+  /** Cheers for the current round; cleared on "New Round". */
+  reactions?: Reactions;
 }
 
 export const ALIGN_LEFT = "left";

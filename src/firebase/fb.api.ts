@@ -4,9 +4,13 @@ import {
   collection,
   addDoc,
   setDoc,
+  updateDoc,
   runTransaction,
+  arrayUnion,
+  arrayRemove,
+  FieldPath,
 } from "firebase/firestore";
-import type { Game, Member } from "@/interfaces/types";
+import type { Game, Member, ReactionKind } from "@/interfaces/types";
 
 export const GAME_COLLECTION = "games";
 export const db = useFirestore();
@@ -35,15 +39,18 @@ export class Base {
 export async function updateGameUsers(
   gameId: string,
   update: (users: Member[]) => Member[],
-  extra: Record<string, unknown> = {}
+  extra:
+    | Record<string, unknown>
+    | ((game: Record<string, unknown>) => Record<string, unknown>) = {}
 ): Promise<void> {
   const ref = doc(db, GAME_COLLECTION, gameId);
   await runTransaction(db, async (tx) => {
     const snap = await tx.get(ref);
     if (!snap.exists()) throw new Error("Game not found");
-    const current = snap.data().users;
-    const users: Member[] = Array.isArray(current) ? current : [];
-    tx.update(ref, { ...extra, users: update(users) });
+    const data = snap.data();
+    const users: Member[] = Array.isArray(data.users) ? data.users : [];
+    const more = typeof extra === "function" ? extra(data) : extra;
+    tx.update(ref, { ...more, users: update(users) });
   });
 }
 
@@ -69,7 +76,27 @@ export function resetRound(gameId: string): Promise<void> {
   return updateGameUsers(
     gameId,
     (users) => users.map((u) => ({ ...u, vote: "" })),
-    { reveal: false }
+    // Only touch `reactions` when there are some to clear.
+    (game) =>
+      "reactions" in game ? { reveal: false, reactions: {} } : { reveal: false }
+  );
+}
+
+/**
+ * Add or remove one cheer. Uses arrayUnion/arrayRemove on a single field
+ * path, so simultaneous reactions from different players never collide.
+ */
+export function setReaction(
+  gameId: string,
+  targetId: string,
+  kind: ReactionKind,
+  reactorId: string,
+  on: boolean
+): Promise<void> {
+  return updateDoc(
+    doc(db, GAME_COLLECTION, gameId),
+    new FieldPath("reactions", targetId, kind),
+    on ? arrayUnion(reactorId) : arrayRemove(reactorId)
   );
 }
 

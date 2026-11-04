@@ -219,6 +219,84 @@
                 </div>
               </div>
             </div>
+            <!-- This round: recognition + cheers -->
+            <div v-if="roundPlayers.length >= 2" class="gv-round">
+              <div class="gv-result-label">This round</div>
+              <p v-if="roundHeadline" class="gv-round-headline">
+                {{ roundHeadline }}
+              </p>
+              <ul class="gv-round-list">
+                <li
+                  v-for="row in roundPlayers"
+                  :key="row.member.id"
+                  class="gv-round-row"
+                >
+                  <span
+                    class="gv-round-avatar"
+                    :class="{ 'gv-round-avatar--emoji': !!row.member.avatar }"
+                    aria-hidden="true"
+                    >{{
+                      row.member.avatar || firstInitial(row.member.displayName)
+                    }}</span
+                  >
+                  <span class="gv-round-who">
+                    <span class="gv-round-name">{{
+                      row.member.id === myId ? "You" : row.member.displayName
+                    }}</span>
+                    <span
+                      v-if="row.member.pronouns"
+                      class="gv-round-pronouns"
+                      >{{ row.member.pronouns }}</span
+                    >
+                  </span>
+                  <span
+                    class="gv-round-vote"
+                    :aria-label="`voted ${row.member.vote}`"
+                    >{{ row.member.vote }}</span
+                  >
+                  <span
+                    v-if="row.badge"
+                    class="gv-round-badge"
+                    :class="`gv-round-badge--${row.badge}`"
+                    >{{
+                      row.badge === "in-sync" ? "🤝 In sync" : "💡 Fresh view"
+                    }}</span
+                  >
+                  <span class="gv-round-reactions">
+                    <button
+                      v-for="r in REACTIONS"
+                      :key="r.kind"
+                      type="button"
+                      class="gv-reaction"
+                      :class="{
+                        'gv-reaction--mine': reactorsFor(
+                          row.member.id,
+                          r.kind
+                        ).includes(myId),
+                      }"
+                      :aria-pressed="
+                        reactorsFor(row.member.id, r.kind).includes(myId)
+                      "
+                      :aria-label="`${r.label} for ${row.member.displayName}`"
+                      :title="
+                        row.member.id === myId
+                          ? 'Cheers from your team show here'
+                          : r.label
+                      "
+                      :disabled="!myId || row.member.id === myId"
+                      @click="toggleReaction(row.member.id, r.kind)"
+                    >
+                      <span aria-hidden="true">{{ r.emoji }}</span>
+                      <span
+                        v-if="reactorsFor(row.member.id, r.kind).length"
+                        class="gv-reaction-count"
+                        >{{ reactorsFor(row.member.id, r.kind).length }}</span
+                      >
+                    </button>
+                  </span>
+                </li>
+              </ul>
+            </div>
             <!-- Keep the momentum: share, or start the next session -->
             <div class="gv-results-actions">
               <button
@@ -250,7 +328,7 @@
   <Teleport to="body">
     <ModalContainer
       ref="modal"
-      title="Choose your display name"
+      :title="joinTitle"
       okLabel="Continue to Game"
       :allowClose="false"
       :onlySubmit="true"
@@ -266,7 +344,63 @@
             type="text"
             autofocus
             placeholder="Display name"
+            maxlength="40"
             v-model="user.displayName"
+          />
+        </div>
+        <div class="col-12 mb-4">
+          <span class="form-label d-block" id="avatarLabel"
+            >Pick an avatar <span class="gv-optional">(optional)</span></span
+          >
+          <div
+            class="gv-avatar-picker"
+            role="radiogroup"
+            aria-labelledby="avatarLabel"
+          >
+            <button
+              type="button"
+              role="radio"
+              class="gv-avatar-option gv-avatar-option--initials"
+              :aria-checked="avatarChoice === ''"
+              aria-label="Use my initials"
+              title="Use my initials"
+              @click="avatarChoice = ''"
+            >
+              Aa
+            </button>
+            <button
+              v-for="a in AVATARS"
+              :key="a"
+              type="button"
+              role="radio"
+              class="gv-avatar-option"
+              :aria-checked="avatarChoice === a"
+              :aria-label="`Avatar ${a}`"
+              @click="avatarChoice = a"
+            >
+              {{ a }}
+            </button>
+          </div>
+        </div>
+        <div class="col-12 mb-4">
+          <label for="pronouns" class="form-label"
+            >Pronouns <span class="gv-optional">(optional)</span></label
+          >
+          <select id="pronouns" class="form-select" v-model="pronounsChoice">
+            <option value="">Don't show</option>
+            <option v-for="p in PRONOUN_PRESETS" :key="p" :value="p">
+              {{ p }}
+            </option>
+            <option value="custom">Something else…</option>
+          </select>
+          <input
+            v-if="pronounsChoice === 'custom'"
+            class="form-control mt-2"
+            type="text"
+            :maxlength="PRONOUNS_MAX"
+            placeholder="e.g. she/they"
+            aria-label="Your pronouns"
+            v-model="pronounsCustom"
           />
         </div>
         <div class="col-12 mb-4">
@@ -330,7 +464,7 @@
 
 <script lang="ts" setup>
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from "vue";
-import { Card, Game, Member } from "@/interfaces/types";
+import { Card, Game, Member, ReactionKind } from "@/interfaces/types";
 import CardList from "@/components/CardList.vue";
 import PockerTable from "./../components/PockerTable.vue";
 import { useRoute, useRouter } from "vue-router";
@@ -342,11 +476,19 @@ import {
   joinGame,
   resetRound,
   startNextGame,
+  setReaction,
 } from "@/firebase/fb.api";
 import { track } from "@/analytics";
 import { useRecentGames } from "@/composables/useRecentGames";
 import { usePwaInstall } from "@/composables/usePwaInstall";
 import { copyText } from "@/composables/copyText";
+import {
+  AVATARS,
+  PRONOUN_PRESETS,
+  PRONOUNS_MAX,
+  loadProfile,
+  saveProfile,
+} from "@/composables/useProfile";
 import { doc, onSnapshot } from "firebase/firestore";
 import ModalContainer from "@/components/ModalContainer.vue";
 import { nanoid } from "nanoid";
@@ -361,23 +503,43 @@ const toast = useToast();
 const { remember: rememberGame, forget: forgetGame } = useRecentGames();
 const { offer: offerInstall } = usePwaInstall();
 
-const DISPLAY_NAME_KEY = "planningPokerDisplayName";
-
 const gamesHttp = new Base(GAME_COLLECTION);
 const gameNotFound = ref(false);
 
-const savedDisplayName =
-  typeof localStorage !== "undefined"
-    ? (localStorage.getItem(DISPLAY_NAME_KEY) ?? "").trim()
-    : "";
+const savedProfile = loadProfile();
+const isReturning = savedProfile.displayName !== "";
 
 const user = ref<Member>({
   id: nanoid(),
-  displayName: savedDisplayName,
+  displayName: savedProfile.displayName,
   joinAsSpectator: false,
   admin: true,
   vote: "",
 });
+
+/* ── Join dialog: avatar + pronouns ──────────────── */
+const avatarChoice = ref(savedProfile.avatar);
+const pronounsChoice = ref(
+  PRONOUN_PRESETS.includes(savedProfile.pronouns)
+    ? savedProfile.pronouns
+    : savedProfile.pronouns
+    ? "custom"
+    : ""
+);
+const pronounsCustom = ref(
+  PRONOUN_PRESETS.includes(savedProfile.pronouns) ? "" : savedProfile.pronouns
+);
+const pronounsValue = computed((): string =>
+  (pronounsChoice.value === "custom"
+    ? pronounsCustom.value
+    : pronounsChoice.value
+  )
+    .trim()
+    .slice(0, PRONOUNS_MAX)
+);
+const joinTitle = computed(() =>
+  isReturning ? `Welcome back, ${savedProfile.displayName}!` : "Join the game"
+);
 
 const userId = computed(() => store.getters["getUserId"]);
 const gameData = computed(() => store.getters["getGameData"]);
@@ -582,9 +744,17 @@ const reset = async () => {
 let justStarted = false;
 const continueToGame = async () => {
   const name = user.value.displayName.trim();
-  if (name && typeof localStorage !== "undefined") {
-    localStorage.setItem(DISPLAY_NAME_KEY, name);
-  }
+  user.value.displayName = name;
+  saveProfile({
+    displayName: name,
+    pronouns: pronounsValue.value,
+    avatar: avatarChoice.value,
+  });
+  // Firestore rejects undefined values, so only set fields that are chosen.
+  delete user.value.pronouns;
+  delete user.value.avatar;
+  if (pronounsValue.value) user.value.pronouns = pronounsValue.value;
+  if (avatarChoice.value) user.value.avatar = avatarChoice.value;
   if (teamMembers.value.length > 0) user.value.admin = false;
   const newUsers: Member[] = [...teamMembers.value, user.value];
   try {
@@ -593,6 +763,9 @@ const continueToGame = async () => {
     void track("game_joined", {
       as_spectator: user.value.joinAsSpectator,
       deck: deckLabel.value,
+      returning: isReturning,
+      has_avatar: !!user.value.avatar,
+      has_pronouns: !!user.value.pronouns,
     });
     store.dispatch("setGameData", {
       ...gameData.value,
@@ -630,6 +803,89 @@ const setNewUserModalState = () => {
     modal.value.show = true;
   }
 };
+
+/* ── Round recognition + team reactions ────────── */
+type Badge = "in-sync" | "fresh-view" | null;
+
+const REACTIONS: { kind: ReactionKind; emoji: string; label: string }[] = [
+  { kind: "agree", emoji: "👍", label: "Agree" },
+  { kind: "celebrate", emoji: "🎉", label: "Nice one" },
+  { kind: "insight", emoji: "💡", label: "Good point" },
+];
+
+const myId = computed((): string => currentTeamMember.value?.id ?? "");
+
+const roundPlayers = computed((): { member: Member; badge: Badge }[] => {
+  if (!revealed.value) return [];
+  const voters: Member[] = teamMembers.value.filter(
+    (m: Member) => !m.joinAsSpectator && m.vote
+  );
+  if (voters.length < 2)
+    return voters.map((member) => ({ member, badge: null }));
+  const counts: Record<string, number> = {};
+  for (const m of voters) counts[m.vote] = (counts[m.vote] ?? 0) + 1;
+  const top = Math.max(...Object.values(counts));
+  const distinct = Object.keys(counts).length;
+  const nums = voters.map((m) => Number(m.vote));
+  const numeric = nums.every((n) => !Number.isNaN(n));
+  const min = Math.min(...nums);
+  const max = Math.max(...nums);
+  return voters.map((member) => {
+    let badge: Badge = null;
+    // Badges only when part of the team lines up; a "fresh view" needs
+    // a shared view to differ from.
+    if (distinct > 1 && top >= 2) {
+      if (counts[member.vote] === top) badge = "in-sync";
+      else if (
+        numeric
+          ? Number(member.vote) === min || Number(member.vote) === max
+          : counts[member.vote] === 1
+      )
+        badge = "fresh-view";
+    }
+    return { member, badge };
+  });
+});
+
+const roundHeadline = computed((): string => {
+  const rows = roundPlayers.value;
+  if (rows.length < 2) return "";
+  if (perfectConsensus.value) return "🎯 Everyone agreed — great alignment!";
+  if (rows.every((r) => r.badge === null)) {
+    return "🗣️ Everyone sees this one differently — talk it through, then vote again.";
+  }
+  const fresh = rows
+    .filter((r) => r.badge === "fresh-view")
+    .map((r) => (r.member.id === myId.value ? "you" : r.member.displayName));
+  if (!fresh.length) return "🤝 Most of the team is in sync.";
+  return `💡 Different views this round — hear from ${joinNames(
+    fresh
+  )} before you settle.`;
+});
+
+/** "A", "A and B", "A, B and C". */
+const joinNames = (names: string[]): string =>
+  names.length <= 1
+    ? names.join("")
+    : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
+
+const reactorsFor = (targetId: string, kind: ReactionKind): string[] =>
+  gameData.value?.reactions?.[targetId]?.[kind] ?? [];
+
+const toggleReaction = async (targetId: string, kind: ReactionKind) => {
+  const me = myId.value;
+  if (!me || me === targetId) return;
+  const on = !reactorsFor(targetId, kind).includes(me);
+  try {
+    await setReaction(route.params.id, targetId, kind, me, on);
+    if (on) void track("reaction_sent", { kind });
+  } catch {
+    await toast.error("Couldn't send that reaction. Try again.");
+  }
+};
+
+const firstInitial = (name: string): string =>
+  (name || "?").trim().charAt(0).toUpperCase() || "?";
 
 /* ── Play again with the same deck ───────────────── */
 const nextGameId = computed(
@@ -917,6 +1173,198 @@ button.gv-btn {
   &.gv-btn--outline {
     border: 1.5px solid rgba(15, 81, 50, 0.25);
   }
+}
+
+.gv-optional {
+  font-weight: 400;
+  color: #9ca3af;
+  font-size: 0.85em;
+}
+
+.gv-avatar-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.gv-avatar-option {
+  width: 2.5rem;
+  height: 2.5rem;
+  display: grid;
+  place-items: center;
+  font-size: 1.25rem;
+  border-radius: 50%;
+  border: 1.5px solid rgba(15, 81, 50, 0.15);
+  background: #fff;
+  cursor: pointer;
+  transition: transform 0.12s ease, border-color 0.12s ease;
+
+  &:hover {
+    transform: scale(1.06);
+  }
+
+  &[aria-checked="true"] {
+    border-color: #0f5132;
+    box-shadow: 0 0 0 3px rgba(25, 135, 84, 0.2);
+  }
+
+  &--initials {
+    font-size: 0.8125rem;
+    font-weight: 700;
+    color: #0f5132;
+  }
+
+  &:focus-visible {
+    outline: 2px solid #198754;
+    outline-offset: 2px;
+  }
+}
+
+.gv-round {
+  margin-top: 1.25rem;
+  padding: 1.25rem;
+  background: #fff;
+  border-radius: 16px;
+  border: 1px solid rgba(15, 81, 50, 0.08);
+}
+
+.gv-round-headline {
+  margin: 0.25rem 0 0.75rem;
+  font-weight: 600;
+  color: #0f5132;
+}
+
+.gv-round-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.gv-round-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  padding: 0.5rem 0;
+  border-top: 1px solid rgba(15, 81, 50, 0.06);
+
+  &:first-child {
+    border-top: none;
+  }
+}
+
+.gv-round-avatar {
+  width: 2rem;
+  height: 2rem;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: #0f5132;
+  color: #fff;
+  font-size: 0.8125rem;
+  font-weight: 700;
+
+  &--emoji {
+    background: #f1f5f3;
+    font-size: 1.05rem;
+  }
+}
+
+.gv-round-who {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1 1 6rem;
+}
+
+.gv-round-name {
+  font-weight: 600;
+  color: #1a1a1a;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gv-round-pronouns {
+  font-size: 0.75rem;
+  color: #6b7280;
+}
+
+.gv-round-vote {
+  min-width: 2rem;
+  padding: 0.15rem 0.5rem;
+  text-align: center;
+  font-weight: 700;
+  color: #0f5132;
+  background: rgba(15, 81, 50, 0.06);
+  border-radius: 8px;
+}
+
+.gv-round-badge {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+
+  &--in-sync {
+    background: rgba(25, 135, 84, 0.1);
+    color: #0f5132;
+  }
+
+  &--fresh-view {
+    background: rgba(255, 193, 7, 0.16);
+    color: #7a5b00;
+  }
+}
+
+.gv-round-reactions {
+  display: flex;
+  gap: 0.3rem;
+  margin-left: auto;
+}
+
+.gv-reaction {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  min-width: 2.25rem;
+  height: 2rem;
+  padding: 0 0.5rem;
+  border-radius: 999px;
+  border: 1px solid rgba(15, 81, 50, 0.15);
+  background: #fff;
+  font-size: 0.9375rem;
+  cursor: pointer;
+  transition: transform 0.12s ease, background 0.12s ease;
+
+  &:hover:not(:disabled) {
+    transform: scale(1.06);
+    background: rgba(15, 81, 50, 0.04);
+  }
+
+  &:disabled {
+    cursor: default;
+    opacity: 0.75;
+  }
+
+  &--mine {
+    background: rgba(25, 135, 84, 0.12);
+    border-color: rgba(25, 135, 84, 0.5);
+  }
+
+  &:focus-visible {
+    outline: 2px solid #198754;
+    outline-offset: 2px;
+  }
+}
+
+.gv-reaction-count {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #0f5132;
 }
 
 .gv-results-actions {

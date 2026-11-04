@@ -22,6 +22,12 @@ service cloud.firestore {
         || (data.nextGameId is string && data.nextGameId.size() <= 40);
     }
 
+    // Cheers after a reveal: target player id → kind → reactor ids.
+    function isValidReactions(data) {
+      return !('reactions' in data)
+        || (data.reactions is map && data.reactions.size() <= 50);
+    }
+
     function isValidVotingSystem(vs) {
       return vs is map
         && (!('pattern' in vs) || (vs.pattern is list && vs.pattern.size() <= 50));
@@ -45,11 +51,12 @@ service cloud.firestore {
 
       // Gameplay only touches these fields; name and deck stay fixed.
       allow update: if request.resource.data.diff(resource.data).affectedKeys()
-            .hasOnly(['reveal', 'users', 'currentStory', 'nextGameId'])
+            .hasOnly(['reveal', 'users', 'currentStory', 'nextGameId', 'reactions'])
         && request.resource.data.reveal is bool
         && isValidUsers(request.resource.data.users)
         && isValidStory(request.resource.data)
-        && isValidNextGame(request.resource.data);
+        && isValidNextGame(request.resource.data)
+        && isValidReactions(request.resource.data);
 
       allow delete: if false;
     }

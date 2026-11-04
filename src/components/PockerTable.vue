@@ -40,11 +40,16 @@
       >
         <div
           class="pt-player-avatar"
-          :style="{ backgroundColor: avatarColor(player.displayName) }"
+          :class="{ 'pt-player-avatar--emoji': !!player.avatar }"
+          :style="
+            player.avatar
+              ? undefined
+              : { backgroundColor: avatarColor(player.displayName) }
+          "
           :title="player.displayName"
           aria-hidden="true"
         >
-          {{ getInitials(player.displayName) }}
+          {{ player.avatar || getInitials(player.displayName) }}
         </div>
         <div
           class="pt-player-card"
@@ -77,6 +82,12 @@
             <i class="bi bi-star-fill" aria-hidden="true"></i>
           </span>
         </span>
+        <span
+          v-if="player.pronouns"
+          class="pt-player-pronouns"
+          :title="player.pronouns"
+          >{{ player.pronouns }}</span
+        >
       </div>
     </div>
 
@@ -379,6 +390,23 @@ function avatarColor(name: string): string {
   to {
     transform: rotate(360deg);
   }
+}
+
+.pt-player-avatar--emoji {
+  background: #f1f5f3;
+  font-size: 1.125rem;
+  text-shadow: none;
+  box-shadow: inset 0 0 0 1.5px rgba(15, 81, 50, 0.18);
+}
+
+.pt-player-pronouns {
+  margin-top: -0.15rem;
+  font-size: 0.625rem;
+  color: #6b7280;
+  max-width: 5rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .pt-player-name {

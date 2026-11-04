@@ -6,7 +6,7 @@ import {
   setDoc,
   runTransaction,
 } from "firebase/firestore";
-import type { Member } from "@/interfaces/types";
+import type { Game, Member } from "@/interfaces/types";
 
 export const GAME_COLLECTION = "games";
 export const db = useFirestore();
@@ -71,4 +71,32 @@ export function resetRound(gameId: string): Promise<void> {
     (users) => users.map((u) => ({ ...u, vote: "" })),
     { reveal: false }
   );
+}
+
+/**
+ * Start a fresh game with the same name and deck, and point the old game at
+ * it so everyone still in the old game can follow with one click.
+ */
+export async function startNextGame(
+  previousGameId: string,
+  previous: Pick<Game, "name" | "votingSystem">
+): Promise<string> {
+  const next: Game = {
+    name: previous.name,
+    votingSystem: previous.votingSystem,
+    users: [],
+    reveal: false,
+    currentStory: "",
+  };
+  const ref = await addDoc(collection(db, GAME_COLLECTION), next);
+  try {
+    await setDoc(
+      doc(db, GAME_COLLECTION, previousGameId),
+      { nextGameId: ref.id },
+      { merge: true }
+    );
+  } catch {
+    // Only the "join the new game" banner for others is lost.
+  }
+  return ref.id;
 }

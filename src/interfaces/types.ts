@@ -30,6 +30,8 @@ export interface Game {
   votingSystem: VotingSystem;
   /** Current story/ticket being estimated (optional). */
   currentStory?: string;
+  /** Set when someone starts a follow-up game with the same deck. */
+  nextGameId?: string;
 }
 
 export const ALIGN_LEFT = "left";

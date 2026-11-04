@@ -3,7 +3,13 @@ import App from "./App.vue";
 import router from "./router";
 import store from "./store";
 import { setVueApp } from "@/firebase/init";
+import { initAnalytics } from "@/analytics";
+import { listenForInstallPrompt } from "@/composables/usePwaInstall";
 import "bootstrap-icons/font/bootstrap-icons.css";
+
+// Must be registered before the browser fires beforeinstallprompt.
+listenForInstallPrompt();
+initAnalytics();
 
 const app = createApp(App).use(store).use(router);
 setVueApp(app);

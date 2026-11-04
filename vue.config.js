@@ -32,6 +32,15 @@ module.exports = defineConfig({
     }
   },
   pwa: {
+    name: "Planning Poker Minimal",
+    themeColor: "#0f5132",
+    msTileColor: "#0f5132",
+    manifestOptions: {
+      short_name: "Planning Poker",
+      description: "Free real-time planning poker for agile teams. No sign-up.",
+      background_color: "#ffffff",
+      start_url: "/?utm_source=pwa&utm_medium=installed",
+    },
     workboxOptions: {
       maximumFileSizeToCacheInBytes: 2 * 1024 * 1024,
       // Activate new SW immediately so one refresh loads the new deploy (no manual cache clear)

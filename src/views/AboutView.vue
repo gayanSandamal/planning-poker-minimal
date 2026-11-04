@@ -53,11 +53,24 @@
         </article>
 
         <article class="about-card about-card--creator">
-          <span class="about-card-label">
-            <i class="bi bi-person-badge" aria-hidden="true"></i>
-            Creator
-          </span>
-          <h2 class="about-card-title">Gayan Sandamal</h2>
+          <div class="about-creator-head">
+            <img
+              src="@/assets/img/gayan-sandamal.jpg"
+              alt="Portrait of Gayan Sandamal"
+              class="about-creator-photo"
+              width="88"
+              height="88"
+              loading="lazy"
+              decoding="async"
+            />
+            <div>
+              <span class="about-card-label">
+                <i class="bi bi-person-badge" aria-hidden="true"></i>
+                Creator
+              </span>
+              <h2 class="about-card-title">Gayan Sandamal</h2>
+            </div>
+          </div>
           <div class="about-creator-bio">
             <p class="about-card-text">
               <a
@@ -303,6 +316,33 @@ import IconWidget from "@/components/IconWidget.vue";
   padding: 2rem 1.5rem;
   border-color: rgba(15, 81, 50, 0.1);
   box-shadow: 0 6px 28px rgba(0, 0, 0, 0.05), 0 2px 8px rgba(15, 81, 50, 0.06);
+}
+
+.about-creator-head {
+  display: flex;
+  align-items: center;
+  gap: 1.125rem;
+  margin-bottom: 1rem;
+
+  .about-card-title {
+    margin-bottom: 0;
+  }
+}
+
+.about-creator-photo {
+  flex-shrink: 0;
+  width: 88px;
+  height: 88px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 3px solid #fff;
+  box-shadow: 0 0 0 2px rgba(15, 81, 50, 0.18), 0 6px 16px rgba(0, 0, 0, 0.1);
+  background: #6b4a3a;
+
+  @media (max-width: 380px) {
+    width: 72px;
+    height: 72px;
+  }
 }
 
 .about-creator-bio {

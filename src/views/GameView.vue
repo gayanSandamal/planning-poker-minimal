@@ -293,12 +293,19 @@
 </template>
 
 <script lang="ts" setup>
-import { ref, computed, watch, onMounted, nextTick } from "vue";
+import { ref, computed, watch, onMounted, onUnmounted, nextTick } from "vue";
 import { Card, Game, Member } from "@/interfaces/types";
 import CardList from "@/components/CardList.vue";
 import PockerTable from "./../components/PockerTable.vue";
 import { useRoute } from "vue-router";
-import { db, Base, GAME_COLLECTION } from "@/firebase/fb.api";
+import {
+  db,
+  Base,
+  GAME_COLLECTION,
+  castVote,
+  joinGame,
+  resetRound,
+} from "@/firebase/fb.api";
 import { doc, onSnapshot } from "firebase/firestore";
 import ModalContainer from "@/components/ModalContainer.vue";
 import { nanoid } from "nanoid";
@@ -490,8 +497,9 @@ const disabled = ref(false);
 const recordVote = async (vote: Card) => {
   if (!currentTeamMember.value) return;
   try {
+    // Optimistic local update; the snapshot listener brings in the server truth.
     currentTeamMember.value.vote = vote.value;
-    await gamesHttp.setDoc(route.params.id, { users: teamMembers.value });
+    await castVote(route.params.id, currentTeamMember.value.id, vote.value);
   } catch {
     await toast.error(
       "Failed to save your vote. Check your connection and try again."
@@ -512,10 +520,7 @@ const reveal = async () => {
 const reset = async () => {
   try {
     store.dispatch("resetVotes", route.params.id);
-    await gamesHttp.setDoc(route.params.id, {
-      reveal: false,
-      users: teamMembers.value,
-    });
+    await resetRound(route.params.id);
   } catch {
     await toast.error(
       "Failed to reset round. Check your connection and try again."
@@ -532,7 +537,7 @@ const continueToGame = async () => {
   if (teamMembers.value.length > 0) user.value.admin = false;
   const newUsers: Member[] = [...teamMembers.value, user.value];
   try {
-    await gamesHttp.setDoc(route.params.id, { users: newUsers });
+    await joinGame(route.params.id, user.value);
     store.dispatch("setUserId", user.value.id);
     store.dispatch("setGameData", {
       ...gameData.value,
@@ -570,24 +575,36 @@ const setNewUserModalState = () => {
   }
 };
 
-onSnapshot(
-  doc(db, GAME_COLLECTION, route.params.id),
-  (snapshot) => {
-    if (!snapshot.exists()) {
+const subscribeToGame = (gameId: string) =>
+  onSnapshot(
+    doc(db, GAME_COLLECTION, gameId),
+    (snapshot) => {
+      if (!snapshot.exists()) {
+        gameNotFound.value = true;
+        store.dispatch("setGameData", null);
+      } else {
+        gameNotFound.value = false;
+        store.dispatch("setGameData", snapshot.data() as Game);
+      }
+    },
+    (err) => {
       gameNotFound.value = true;
       store.dispatch("setGameData", null);
-    } else {
-      gameNotFound.value = false;
-      store.dispatch("setGameData", snapshot.data() as Game);
+      toast.error("Could not load game. Check your connection.");
+      // eslint-disable-next-line no-console -- log Firestore errors for debugging
+      console.error("Firestore snapshot error:", err);
     }
+  );
+
+// Re-subscribe if the route param changes in place; always unsubscribe on leave.
+watch(
+  () => route.params.id as string,
+  (gameId, _prev, onCleanup) => {
+    if (!gameId) return;
+    const unsubscribe = subscribeToGame(gameId);
+    onCleanup(unsubscribe);
   },
-  (err) => {
-    gameNotFound.value = true;
-    store.dispatch("setGameData", null);
-    toast.error("Could not load game. Check your connection.");
-    // eslint-disable-next-line no-console -- log Firestore errors for debugging
-    console.error("Firestore snapshot error:", err);
-  }
+  { immediate: true }
 );
 
 watch(
@@ -626,12 +643,18 @@ watch(
   }
 );
 
-onMounted(() => {
-  window.addEventListener("sw-update", () => {
-    toast.success("New version available! Refresh to update.", {
-      autoClose: 0,
-    });
+const onSwUpdate = () => {
+  toast.success("New version available! Refresh to update.", {
+    autoClose: 0,
   });
+};
+
+onMounted(() => {
+  window.addEventListener("sw-update", onSwUpdate);
+});
+
+onUnmounted(() => {
+  window.removeEventListener("sw-update", onSwUpdate);
 });
 </script>
 

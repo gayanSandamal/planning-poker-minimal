@@ -1,0 +1,55 @@
+rules_version = '2';
+
+// Planning Poker has no sign-in: a game is reachable by anyone holding its
+// (unguessable, auto-generated) document ID. These rules make that link the
+// only way in — games can be fetched by ID but never listed, never deleted,
+// and only the fields gameplay needs can change, with size limits.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isValidUsers(users) {
+      return users is list && users.size() <= 50;
+    }
+
+    function isValidStory(data) {
+      return !('currentStory' in data)
+        || (data.currentStory is string && data.currentStory.size() <= 500);
+    }
+
+    function isValidVotingSystem(vs) {
+      return vs is map
+        && (!('pattern' in vs) || (vs.pattern is list && vs.pattern.size() <= 50));
+    }
+
+    match /games/{gameId} {
+      // Open a game by its link; enumerating the collection is not allowed.
+      allow get: if true;
+      allow list: if false;
+
+      allow create: if request.resource.data.keys()
+            .hasOnly(['name', 'reveal', 'users', 'votingSystem', 'currentStory'])
+        && request.resource.data.keys().hasAll(['name', 'reveal', 'users', 'votingSystem'])
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0
+        && request.resource.data.name.size() <= 200
+        && request.resource.data.reveal is bool
+        && isValidUsers(request.resource.data.users)
+        && isValidVotingSystem(request.resource.data.votingSystem)
+        && isValidStory(request.resource.data);
+
+      // Gameplay only touches these fields; name and deck stay fixed.
+      allow update: if request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['reveal', 'users', 'currentStory'])
+        && request.resource.data.reveal is bool
+        && isValidUsers(request.resource.data.users)
+        && isValidStory(request.resource.data);
+
+      allow delete: if false;
+    }
+
+    // Everything else is closed.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

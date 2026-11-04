@@ -39,3 +39,10 @@ jobs:
           npx firebase-tools deploy --only hosting --non-interactive --project "$FIREBASE_PROJECT"
         env:
           FIREBASE_PROJECT: ${{ secrets.FIREBASE_PROJECT }}
+
+      # Separate step so a missing IAM role can't block hosting deploys.
+      # The service account needs the "Firebase Rules Admin" role.
+      - name: Deploy Firestore security rules
+        run: npx firebase-tools deploy --only firestore:rules --non-interactive --project "$FIREBASE_PROJECT"
+        env:
+          FIREBASE_PROJECT: ${{ secrets.FIREBASE_PROJECT }}

@@ -14,7 +14,9 @@ concurrency:
 jobs:
   test:
     name: Lint, test and build
-    runs-on: ubuntu-latest
+    # Pinned: Playwright 1.58 can't install its browser on ubuntu-latest
+    # (26.04) yet. Move to ubuntu-latest after upgrading @playwright/test.
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
 
     steps:

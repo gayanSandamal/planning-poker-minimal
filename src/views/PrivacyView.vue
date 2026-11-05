@@ -54,11 +54,11 @@
       <section class="privacy-card" aria-labelledby="pv-games">
         <h2 id="pv-games">Games</h2>
         <p>
-          A game's name, current story, the display names of players (with any
-          avatar and pronouns they choose), their votes and cheers are stored in
-          Google Cloud Firestore so everyone in the game sees them in real time.
-          Anyone with a game's link can open it, so only share links with your
-          team. Games can't be listed or searched.
+          A game's name, its story list and estimates, the display names of
+          players (with any avatar and pronouns they choose), their votes and
+          cheers are stored in Google Cloud Firestore so everyone in the game
+          sees them in real time. Anyone with a game's link can open it, so only
+          share links with your team. Games can't be listed or searched.
         </p>
       </section>
 

@@ -44,6 +44,10 @@ export interface Game {
   nextGameId?: string;
   /** Cheers for the current round; cleared on "New Round". */
   reactions?: Reactions;
+  /** Backlog for this session, estimated one by one. */
+  stories?: Story[];
+  /** Id of the story in `stories` being estimated now. */
+  currentStoryId?: string;
 }
 
 export const ALIGN_LEFT = "left";
@@ -77,3 +81,17 @@ export type IconSizes =
   | typeof ICON_MEDIUM
   | typeof ICON_LARGE
   | typeof ICON_EXTRA_LARGE;
+
+/** Non-numeric cards: "not sure" and "need a break". Never counted in averages. */
+export const SPECIAL_CARDS = ["?", "☕"];
+
+export const isSpecialCard = (v: string | undefined | null): boolean =>
+  !!v && SPECIAL_CARDS.includes(v);
+
+/** A backlog item in the session's story queue. */
+export interface Story {
+  id: string;
+  title: string;
+  /** Final agreed estimate, once saved. */
+  estimate?: string;
+}

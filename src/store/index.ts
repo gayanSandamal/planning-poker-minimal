@@ -1,5 +1,5 @@
 import { createStore } from "vuex";
-import { Game, Member } from "@/interfaces/types";
+import { Game, Member, isSpecialCard } from "@/interfaces/types";
 import Cookies from "js-cookie";
 
 export default createStore({
@@ -37,13 +37,17 @@ export default createStore({
         state.gameData?.users?.filter(
           (teamMember: Member) => !teamMember.joinAsSpectator
         ) ?? [];
-      if (players.length === 0) return 0;
-      const votes = players.map((p) => p.vote);
-      const numericVotes = votes.map((v) => Number(v));
+      // Only real votes count: skip players who haven't voted and the
+      // "?" / "☕" cards.
+      const numericVotes = players
+        .filter((p) => p.vote && !isSpecialCard(p.vote))
+        .map((p) => Number(p.vote));
+      if (numericVotes.length === 0) {
+        return players.some((p) => isSpecialCard(p.vote)) ? null : 0;
+      }
       if (numericVotes.some((n) => isNaN(n))) return null;
       const totalVotes = numericVotes.reduce((total, n) => total + n, 0);
-      const avg = totalVotes / players.length;
-      return isNaN(avg) ? 0 : avg;
+      return totalVotes / numericVotes.length;
     },
     getConsensus(
       state
@@ -57,10 +61,12 @@ export default createStore({
         ) ?? [];
       if (players.length === 0) return null;
       const votes = players.map((p) => p.vote);
-      const numericVotes = votes.map((v) => Number(v));
-      if (!numericVotes.some((n) => isNaN(n))) return null;
+      // Ignore "?" / "☕" unless they're the only votes.
+      const real = votes.filter((v) => !isSpecialCard(v));
+      if (real.length && real.every((v) => !isNaN(Number(v)))) return null;
+      const pool = real.length ? real : votes;
       const counts: Record<string, number> = {};
-      for (const v of votes) {
+      for (const v of pool) {
         counts[v] = (counts[v] ?? 0) + 1;
       }
       let topValue = "";
@@ -72,7 +78,7 @@ export default createStore({
         }
       }
       return topValue
-        ? { value: topValue, count: topCount, total: players.length }
+        ? { value: topValue, count: topCount, total: pool.length }
         : null;
     },
     getInviteModalState(state) {

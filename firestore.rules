@@ -28,6 +28,15 @@ service cloud.firestore {
         || (data.reactions is map && data.reactions.size() <= 50);
     }
 
+    // Story queue: [{ id, title, estimate? }] plus a pointer to the one
+    // being estimated.
+    function isValidStoryQueue(data) {
+      return (!('stories' in data)
+          || (data.stories is list && data.stories.size() <= 100))
+        && (!('currentStoryId' in data)
+          || (data.currentStoryId is string && data.currentStoryId.size() <= 40));
+    }
+
     function isValidVotingSystem(vs) {
       return vs is map
         && (!('pattern' in vs) || (vs.pattern is list && vs.pattern.size() <= 50));
@@ -51,12 +60,14 @@ service cloud.firestore {
 
       // Gameplay only touches these fields; name and deck stay fixed.
       allow update: if request.resource.data.diff(resource.data).affectedKeys()
-            .hasOnly(['reveal', 'users', 'currentStory', 'nextGameId', 'reactions'])
+            .hasOnly(['reveal', 'users', 'currentStory', 'nextGameId', 'reactions',
+                      'stories', 'currentStoryId'])
         && request.resource.data.reveal is bool
         && isValidUsers(request.resource.data.users)
         && isValidStory(request.resource.data)
         && isValidNextGame(request.resource.data)
-        && isValidReactions(request.resource.data);
+        && isValidReactions(request.resource.data)
+        && isValidStoryQueue(request.resource.data);
 
       allow delete: if false;
     }

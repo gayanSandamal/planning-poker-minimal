@@ -4,10 +4,18 @@ on:
   push:
     branches:
       - main
+  pull_request:
+
+# One deploy at a time; a newer push to main replaces a queued one.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name == 'push' && 'deploy' || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  deploy:
+  test:
+    name: Lint, test and build
     runs-on: ubuntu-latest
+    timeout-minutes: 20
 
     steps:
       - name: Checkout repository
@@ -17,12 +25,62 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: yarn
 
       - name: Install dependencies
-        run: yarn install
+        run: yarn install --frozen-lockfile
+
+      - name: Lint
+        run: yarn lint --no-fix
+
+      - name: Unit tests
+        run: yarn test:unit
 
       - name: Build application
         run: yarn build
+
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+
+      # Read-only against Firestore: no test creates or changes a game.
+      - name: End-to-end tests
+        run: yarn test:e2e
+        env:
+          CI: "true"
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
+
+      # Deploy ships exactly this tested build.
+      - name: Upload build
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+          retention-days: 1
+
+  deploy:
+    name: Deploy to Firebase
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download tested build
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
 
       - name: Authenticate to Google Cloud
         id: auth

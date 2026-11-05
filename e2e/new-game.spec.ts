@@ -1,43 +1,63 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./fixtures";
 
+// These tests never click "Create Game", so nothing is written to Firestore.
 test.describe("New game page", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/new-game");
   });
 
-  test("shows form with game name and voting system", async ({ page }) => {
+  test("shows the name field, deck choices and Create Game", async ({
+    page,
+  }) => {
     await expect(
-      page.getByText(/choose a name and a voting system for your game/i)
+      page.getByRole("heading", { name: /set up your planning session/i })
     ).toBeVisible();
-    await expect(page.getByLabel(/name of the game/i)).toBeVisible();
-    await expect(page.getByRole("combobox")).toBeVisible();
-    await expect(page.getByRole("button", { name: /create game/i })).toBeVisible();
+    await expect(page.getByLabel("Game Name")).toBeVisible();
+    await expect(
+      page.getByRole("radiogroup", { name: "Voting system" })
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: /create game/i })
+    ).toBeVisible();
   });
 
-  test("Create Game button is disabled when name is empty", async ({ page }) => {
-    const createBtn = page.getByRole("button", { name: /create game/i });
-    await expect(createBtn).toBeDisabled();
+  test("offers every built-in deck plus a custom deck", async ({ page }) => {
+    const decks = page.getByRole("radiogroup", { name: "Voting system" });
+    for (const name of [
+      /^Fibonacci/,
+      /Modified Fibonacci/,
+      /T-Shirt Sizes/,
+      /Powers of 2/,
+      /Custom Deck/,
+    ]) {
+      await expect(decks.getByRole("button", { name })).toBeVisible();
+    }
   });
 
-  test("Create Game button is enabled when name is filled and default system selected", async ({ page }) => {
-    await page.getByLabel(/name of the game/i).fill("My Sprint Planning");
-    await expect(page.getByRole("button", { name: /create game/i })).toBeEnabled();
+  test("Fibonacci is selected by default", async ({ page }) => {
+    await expect(
+      page.getByRole("button", { name: /^Fibonacci/ })
+    ).toHaveAttribute("aria-pressed", "true");
   });
 
-  test("voting system dropdown has Fibonacci, T-shirt, and Custom Deck options", async ({ page }) => {
-    const select = page.getByRole("combobox");
-    await expect(select).toBeVisible();
-    await expect(select.locator("option").first()).toHaveText(/Fibonacci/);
-    const optionsText = await select.locator("option").allTextContents();
-    expect(optionsText.some((t) => /t-shirt|T-shirt/i.test(t))).toBe(true);
-    expect(optionsText.some((t) => /custom deck|Create Custom/i.test(t))).toBe(true);
+  test("Create Game is disabled until the game has a name", async ({
+    page,
+  }) => {
+    const create = page.getByRole("button", { name: /create game/i });
+    await expect(create).toBeDisabled();
+    await page.getByLabel("Game Name").fill("Sprint 24 Planning");
+    await expect(create).toBeEnabled();
+    await page.getByLabel("Game Name").fill("   ");
+    await expect(create).toBeDisabled();
   });
 
-  test("another voting system is selectable and Create Game stays enabled when name is filled", async ({ page }) => {
-    await page.getByLabel(/name of the game/i).fill("Estimation Game");
-    const select = page.getByRole("combobox");
-    await select.selectOption({ index: 3 });
-    await expect(select).toContainText("Powers of 2");
-    await expect(page.getByRole("button", { name: /create game/i })).toBeEnabled();
+  test("another deck can be selected", async ({ page }) => {
+    await page.getByRole("button", { name: /Powers of 2/ }).click();
+    await expect(
+      page.getByRole("button", { name: /Powers of 2/ })
+    ).toHaveAttribute("aria-pressed", "true");
+    await expect(
+      page.getByRole("button", { name: /^Fibonacci/ })
+    ).toHaveAttribute("aria-pressed", "false");
   });
 });

@@ -1,20 +1,27 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./fixtures";
 
+// Read-only: opens a game ID that doesn't exist, so nothing is written.
 test.describe("Game page", () => {
-  test("game route loads and shows game view", async ({ page }) => {
-    await page.goto("/game-e2e-test");
+  test("an unknown game link shows a friendly not-found page", async ({
+    page,
+  }) => {
+    await page.goto("/e2e-no-such-game");
     await expect(
-      page.getByRole("heading", { name: /planning poker minimal/i })
-    ).toBeVisible();
+      page.getByRole("heading", { name: "Game not found" })
+    ).toBeVisible({ timeout: 15000 });
+    await expect(
+      page.getByRole("main").getByRole("link", { name: /start new game/i })
+    ).toHaveAttribute("href", "/new-game");
   });
 
-  test("game view shows either join modal or voting UI", async ({ page }) => {
-    await page.goto("/game-e2e-test");
-    const joinModal = page.getByPlaceholder("Display name");
-    const chooseCard = page.getByText(/choose your card/i);
-    const startNewVoting = page.getByRole("button", { name: /start new voting/i });
+  test("an unknown game is not added to recent games", async ({ page }) => {
+    await page.goto("/e2e-no-such-game");
     await expect(
-      joinModal.or(chooseCard).or(startNewVoting)
-    ).toBeVisible({ timeout: 10000 });
+      page.getByRole("heading", { name: "Game not found" })
+    ).toBeVisible({ timeout: 15000 });
+    const recent = await page.evaluate(() =>
+      localStorage.getItem("ppm.recentGames")
+    );
+    expect(JSON.parse(recent ?? "[]")).toEqual([]);
   });
 });

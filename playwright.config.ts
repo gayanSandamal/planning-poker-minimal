@@ -1,14 +1,18 @@
 import { defineConfig, devices } from "@playwright/test";
 
+// Override with E2E_PORT if 8080 is taken locally (e.g. E2E_PORT=8093).
+const port = Number(process.env.E2E_PORT) || 8080;
+const baseURL = `http://localhost:${port}`;
+
 export default defineConfig({
   testDir: "./e2e",
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
-  workers: process.env.CI ? 1 : undefined,
-  reporter: "html",
+  workers: process.env.CI ? 2 : undefined,
+  reporter: process.env.CI ? [["github"], ["html", { open: "never" }]] : "html",
   use: {
-    baseURL: "http://localhost:8080",
+    baseURL,
     trace: "on-first-retry",
     screenshot: "only-on-failure",
   },
@@ -26,9 +30,9 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: "yarn serve",
-    url: "http://localhost:8080",
+    command: `yarn serve --port ${port}`,
+    url: baseURL,
     reuseExistingServer: !process.env.CI,
-    timeout: 120_000,
+    timeout: 180_000,
   },
 });

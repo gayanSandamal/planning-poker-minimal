@@ -25,7 +25,7 @@ defineProps({
     default: false,
   },
   votedCard: {
-    type: Object as PropType<string>,
+    type: String as PropType<string>,
   },
 });
 const emit = defineEmits(["card-selected"]);

@@ -108,6 +108,14 @@
             @reveal="reveal"
             @reset="reset"
           />
+          <label v-if="isCurrentUserAdmin" class="gv-autoreveal">
+            <input
+              v-model="autoReveal"
+              type="checkbox"
+              class="form-check-input"
+            />
+            Reveal automatically when everyone has voted
+          </label>
         </div>
 
         <!-- Card hand (voters only, while voting) -->
@@ -118,6 +126,14 @@
           <p class="gv-hand-prompt">
             <i class="bi bi-hand-index-fill" aria-hidden="true"></i>
             Pick your card
+            <span class="gv-key-hint"
+              >or type it — <kbd>{{ keyHintExample }}</kbd
+              ><template v-if="deckValues.includes('?')"
+                >, <kbd>?</kbd></template
+              ><template v-if="deckValues.includes('☕')"
+                >, <kbd>c</kbd> for ☕</template
+              ></span
+            >
           </p>
           <CardList
             :cards="cards"
@@ -320,6 +336,52 @@
             </div>
           </div>
         </Transition>
+
+        <!-- Players: run it for your own team -->
+        <div
+          v-if="
+            revealed &&
+            currentTeamMember &&
+            !isCurrentUserAdmin &&
+            !nudgeDismissed
+          "
+          class="gv-nudge"
+        >
+          <span class="gv-nudge-text">
+            <strong>Like how this went?</strong> Run estimation for your own
+            team — free, no sign-up.
+          </span>
+          <router-link
+            to="/new-game"
+            class="gv-btn gv-btn--primary gv-btn--sm"
+            @click="nudgeClicked"
+            >Start a game</router-link
+          >
+          <button
+            type="button"
+            class="gv-nudge-close"
+            aria-label="Dismiss"
+            @click="dismissNudge"
+          >
+            <i class="bi bi-x-lg" aria-hidden="true"></i>
+          </button>
+        </div>
+
+        <!-- Story queue + session summary -->
+        <StoryQueue
+          :stories="stories"
+          :current-story-id="currentStoryId"
+          :is-host="isCurrentUserAdmin"
+          :revealed="!!revealed"
+          :suggestion="estimateSuggestion"
+          :deck-values="deckValues"
+          :game-name="gameData?.name ?? ''"
+          :busy="storyBusy"
+          @add="onAddStories"
+          @remove="onRemoveStory"
+          @select="onSelectStory"
+          @save="onSaveEstimate"
+        />
       </div>
     </div>
   </div>
@@ -464,7 +526,14 @@
 
 <script lang="ts" setup>
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from "vue";
-import { Card, Game, Member, ReactionKind } from "@/interfaces/types";
+import {
+  Card,
+  Game,
+  Member,
+  ReactionKind,
+  Story,
+  isSpecialCard,
+} from "@/interfaces/types";
 import CardList from "@/components/CardList.vue";
 import PockerTable from "./../components/PockerTable.vue";
 import { useRoute, useRouter } from "vue-router";
@@ -477,6 +546,11 @@ import {
   resetRound,
   startNextGame,
   setReaction,
+  addStories,
+  removeStory,
+  selectStory,
+  renameStory,
+  saveEstimate,
 } from "@/firebase/fb.api";
 import { track } from "@/analytics";
 import { useRecentGames } from "@/composables/useRecentGames";
@@ -491,6 +565,7 @@ import {
 } from "@/composables/useProfile";
 import { doc, onSnapshot } from "firebase/firestore";
 import ModalContainer from "@/components/ModalContainer.vue";
+import StoryQueue from "@/components/StoryQueue.vue";
 import { nanoid } from "nanoid";
 import { useStore } from "vuex";
 import { useToast } from "@/composables/useToast";
@@ -563,11 +638,16 @@ const nearestInDeck = computed((): string | null => {
   const avg = averageAgreement.value;
   const pattern = gameData.value?.votingSystem?.pattern;
   if (avg == null || !pattern?.length) return null;
-  const numericEntries = pattern.map((s: string) => ({
-    str: s,
-    num: Number(s),
-  }));
-  if (numericEntries.every((e: { num: number }) => !Number.isNaN(e.num))) {
+  const numericEntries = pattern
+    .filter((s: string) => !isSpecialCard(s))
+    .map((s: string) => ({
+      str: s,
+      num: Number(s),
+    }));
+  if (
+    numericEntries.length &&
+    numericEntries.every((e: { num: number }) => !Number.isNaN(e.num))
+  ) {
     let nearest = numericEntries[0];
     for (let i = 1; i < numericEntries.length; i++) {
       const cur = numericEntries[i];
@@ -648,7 +728,12 @@ async function saveCurrentStory() {
   const val = currentStoryEditValue.value.trim();
   if (val === currentStoryDisplay.value) return;
   try {
-    await gamesHttp.setDoc(route.params.id, { currentStory: val || "" });
+    // Keep the queue in sync when the header shows a queued story.
+    if (val && currentStoryId.value) {
+      await renameStory(route.params.id, currentStoryId.value, val);
+    } else {
+      await gamesHttp.setDoc(route.params.id, { currentStory: val || "" });
+    }
   } catch {
     await toast.error("Failed to update story.");
   }
@@ -661,28 +746,33 @@ const voteDistribution = computed(() => {
   if (voters.length === 0) return [];
   const counts: Record<string, number> = {};
   for (const m of voters) {
-    const v = m.vote ?? "—";
+    const v = m.vote || "—";
     counts[v] = (counts[v] ?? 0) + 1;
   }
   const total = voters.length;
-  const pattern = gameData.value?.votingSystem?.pattern ?? [];
-  const numericPattern = pattern
-    .map((s: string) => Number(s))
-    .every((n: number) => !Number.isNaN(n));
+  const pattern: string[] = gameData.value?.votingSystem?.pattern ?? [];
+  // Sort in deck order; "?", "☕" and "—" (no vote) go last.
+  const order = (v: string) => {
+    const i = pattern.indexOf(v);
+    return i === -1 ? Number.MAX_SAFE_INTEGER : i;
+  };
   const entries = Object.entries(counts).map(([value, count]) => ({
     value,
     count,
     percent: total > 0 ? (count / total) * 100 : 0,
   }));
-  entries.sort((a, b) => {
-    if (numericPattern) return Number(a.value) - Number(b.value);
-    return String(a.value).localeCompare(String(b.value));
-  });
+  entries.sort(
+    (a, b) =>
+      order(a.value) - order(b.value) ||
+      String(a.value).localeCompare(String(b.value))
+  );
   return entries;
 });
 
 const perfectConsensus = computed(() => {
   if (!revealed.value || voteDistribution.value.length !== 1) return false;
+  const only = voteDistribution.value[0].value;
+  if (isSpecialCard(only) || only === "—") return false;
   return (
     voteDistribution.value[0].count ===
     teamMembers.value.filter((m: Member) => !m.joinAsSpectator).length
@@ -740,6 +830,204 @@ const reset = async () => {
     );
   }
 };
+
+/* ── Story queue ─────────────────────────────────── */
+const stories = computed((): Story[] => gameData.value?.stories ?? []);
+const currentStoryId = computed(
+  (): string => gameData.value?.currentStoryId ?? ""
+);
+const deckValues = computed(
+  (): string[] => gameData.value?.votingSystem?.pattern ?? []
+);
+/** Pre-selected agreed estimate: nearest in deck, else the most common vote. */
+const estimateSuggestion = computed((): string | null => {
+  if (!revealed.value) return null;
+  if (showNearestInDeck.value) return nearestInDeck.value;
+  return consensus.value?.value ?? null;
+});
+const storyBusy = ref(false);
+
+async function withStoryBusy(fn: () => Promise<void>, error: string) {
+  storyBusy.value = true;
+  try {
+    await fn();
+  } catch {
+    await toast.error(error);
+  } finally {
+    storyBusy.value = false;
+  }
+}
+
+const onAddStories = (titles: string[]) =>
+  withStoryBusy(async () => {
+    await addStories(route.params.id, titles);
+    void track("story_added", { count: titles.length });
+  }, "Couldn't add those stories. Try again.");
+
+const onRemoveStory = (id: string) =>
+  withStoryBusy(
+    () => removeStory(route.params.id, id),
+    "Couldn't remove that story. Try again."
+  );
+
+const onSelectStory = (id: string) =>
+  withStoryBusy(async () => {
+    store.dispatch("resetVotes");
+    await selectStory(route.params.id, id);
+    void track("story_selected");
+  }, "Couldn't switch stories. Try again.");
+
+const onSaveEstimate = (p: { estimate: string; advance: boolean }) =>
+  withStoryBusy(async () => {
+    const moved = await saveEstimate(
+      route.params.id,
+      currentStoryId.value,
+      p.estimate,
+      p.advance
+    );
+    void track("story_estimated", { advanced: p.advance && moved });
+    if (p.advance && !moved) {
+      await toast.success(
+        "Every story is estimated 🎉 Copy the summary to share it.",
+        { autoClose: 3500 }
+      );
+    }
+  }, "Couldn't save the estimate. Try again.");
+
+/* ── Auto-reveal (host only) ─────────────────────── */
+const AUTO_REVEAL_KEY = "ppm.autoReveal";
+const autoReveal = ref(
+  (() => {
+    try {
+      return localStorage.getItem(AUTO_REVEAL_KEY) !== "off";
+    } catch {
+      return true;
+    }
+  })()
+);
+watch(autoReveal, (on) => {
+  try {
+    localStorage.setItem(AUTO_REVEAL_KEY, on ? "on" : "off");
+  } catch {
+    // ignore
+  }
+});
+
+const everyoneVoted = computed(() => {
+  const voters = teamMembers.value.filter((m: Member) => !m.joinAsSpectator);
+  return voters.length >= 2 && voters.every((m: Member) => !!m.vote);
+});
+
+let autoRevealTimer: ReturnType<typeof setTimeout> | null = null;
+watch(
+  () => [
+    everyoneVoted.value,
+    revealed.value,
+    isCurrentUserAdmin.value,
+    autoReveal.value,
+  ],
+  () => {
+    if (autoRevealTimer) clearTimeout(autoRevealTimer);
+    autoRevealTimer = null;
+    if (
+      everyoneVoted.value &&
+      !revealed.value &&
+      isCurrentUserAdmin.value &&
+      autoReveal.value
+    ) {
+      // Short pause so the last voter sees their card land.
+      autoRevealTimer = setTimeout(() => {
+        if (everyoneVoted.value && !revealed.value) {
+          void reveal();
+          void track("auto_revealed");
+        }
+      }, 1200);
+    }
+  }
+);
+
+/* ── Keyboard voting ─────────────────────────────── */
+/** A real value from this deck for the hint, e.g. "5" or "m". */
+const keyHintExample = computed(
+  () =>
+    deckValues.value.find(
+      (v) => !isSpecialCard(v) && v.length <= 3 && v !== "0"
+    ) ?? "5"
+);
+let keyBuffer = "";
+let keyTimer: ReturnType<typeof setTimeout> | null = null;
+
+const voteByValue = (value: string) => {
+  keyBuffer = "";
+  void recordVote({ value });
+  void track("keyboard_vote");
+};
+
+const onVoteKey = (e: KeyboardEvent) => {
+  if (e.metaKey || e.ctrlKey || e.altKey || e.repeat) return;
+  const target = e.target as HTMLElement | null;
+  if (target?.closest('input, textarea, select, [contenteditable="true"]'))
+    return;
+  if (modal.value?.show || inviteTeamModal.value?.show) return;
+  const me = currentTeamMember.value;
+  if (!me || me.joinAsSpectator || revealed.value || disabled.value) return;
+
+  const values = cards.value.map((c) => c.value);
+  const lower = values.map((v) => v.toLowerCase());
+  let key = e.key;
+  // "c" for coffee, unless the deck uses words starting with c.
+  if (key.toLowerCase() === "c" && !lower.some((v) => v.startsWith("c"))) {
+    key = "☕";
+  }
+  if (key === "?" || key === "☕") {
+    if (values.includes(key)) {
+      e.preventDefault();
+      voteByValue(key);
+    }
+    return;
+  }
+  if (!/^[0-9a-z.]$/i.test(key)) return;
+
+  // Multi-character values ("13", "xxl"): buffer briefly, vote on an exact
+  // match as soon as nothing longer could still match.
+  keyBuffer += key.toLowerCase();
+  if (keyTimer) clearTimeout(keyTimer);
+  const exactIdx = lower.indexOf(keyBuffer);
+  const longer = lower.some((v) => v !== keyBuffer && v.startsWith(keyBuffer));
+  if (exactIdx !== -1 && !longer) {
+    voteByValue(values[exactIdx]);
+  } else if (exactIdx === -1 && !longer) {
+    keyBuffer = "";
+  } else {
+    keyTimer = setTimeout(() => {
+      const idx = lower.indexOf(keyBuffer);
+      if (idx !== -1) voteByValue(values[idx]);
+      keyBuffer = "";
+    }, 600);
+  }
+};
+
+/* ── "Run this for your own team" (players, not the host) ── */
+const NUDGE_KEY = "ppm.teamNudgeDismissed";
+const nudgeDismissed = ref(
+  (() => {
+    try {
+      return localStorage.getItem(NUDGE_KEY) === "1";
+    } catch {
+      return false;
+    }
+  })()
+);
+const dismissNudge = () => {
+  nudgeDismissed.value = true;
+  try {
+    localStorage.setItem(NUDGE_KEY, "1");
+  } catch {
+    // ignore
+  }
+  void track("team_nudge_dismissed");
+};
+const nudgeClicked = () => void track("team_nudge_clicked");
 
 let justStarted = false;
 const continueToGame = async () => {
@@ -820,13 +1108,14 @@ const roundPlayers = computed((): { member: Member; badge: Badge }[] => {
   const voters: Member[] = teamMembers.value.filter(
     (m: Member) => !m.joinAsSpectator && m.vote
   );
-  if (voters.length < 2)
-    return voters.map((member) => ({ member, badge: null }));
+  // Badges compare real estimates only; "?" and "☕" never get one.
+  const real = voters.filter((m) => !isSpecialCard(m.vote));
+  if (real.length < 2) return voters.map((member) => ({ member, badge: null }));
   const counts: Record<string, number> = {};
-  for (const m of voters) counts[m.vote] = (counts[m.vote] ?? 0) + 1;
+  for (const m of real) counts[m.vote] = (counts[m.vote] ?? 0) + 1;
   const top = Math.max(...Object.values(counts));
   const distinct = Object.keys(counts).length;
-  const nums = voters.map((m) => Number(m.vote));
+  const nums = real.map((m) => Number(m.vote));
   const numeric = nums.every((n) => !Number.isNaN(n));
   const min = Math.min(...nums);
   const max = Math.max(...nums);
@@ -834,7 +1123,7 @@ const roundPlayers = computed((): { member: Member; badge: Badge }[] => {
     let badge: Badge = null;
     // Badges only when part of the team lines up; a "fresh view" needs
     // a shared view to differ from.
-    if (distinct > 1 && top >= 2) {
+    if (!isSpecialCard(member.vote) && distinct > 1 && top >= 2) {
       if (counts[member.vote] === top) badge = "in-sync";
       else if (
         numeric
@@ -1048,10 +1337,14 @@ const onSwUpdate = () => {
 
 onMounted(() => {
   window.addEventListener("sw-update", onSwUpdate);
+  window.addEventListener("keydown", onVoteKey);
 });
 
 onUnmounted(() => {
   window.removeEventListener("sw-update", onSwUpdate);
+  window.removeEventListener("keydown", onVoteKey);
+  if (autoRevealTimer) clearTimeout(autoRevealTimer);
+  if (keyTimer) clearTimeout(keyTimer);
 });
 </script>
 
@@ -1365,6 +1658,87 @@ button.gv-btn {
   font-size: 0.75rem;
   font-weight: 700;
   color: #0f5132;
+}
+
+.gv-autoreveal {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  font-size: 0.8125rem;
+  color: #6b7280;
+  cursor: pointer;
+
+  .form-check-input {
+    margin: 0;
+  }
+}
+
+.gv-key-hint {
+  margin-left: 0.5rem;
+  font-size: 0.8125rem;
+  font-weight: 400;
+  color: #9ca3af;
+
+  kbd {
+    padding: 0.05rem 0.35rem;
+    font-size: 0.75rem;
+    color: #4a5568;
+    background: #f3f4f6;
+    border: 1px solid #e5e7eb;
+    border-radius: 4px;
+    box-shadow: none;
+  }
+
+  // Touch devices have no keyboard to type with.
+  @media (hover: none) {
+    display: none;
+  }
+}
+
+.gv-nudge {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem 0.9rem;
+  margin-top: 1.25rem;
+  padding: 0.9rem 1rem;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #0f5132 0%, #198754 100%);
+  color: #fff;
+}
+
+.gv-nudge-text {
+  flex: 1 1 220px;
+  font-size: 0.9375rem;
+}
+
+.gv-nudge .gv-btn--primary {
+  background: #fff;
+  color: #0f5132;
+
+  &:hover {
+    background: #f1f5f3;
+    color: #0f5132;
+  }
+}
+
+.gv-nudge-close {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.8);
+  cursor: pointer;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.12);
+    color: #fff;
+  }
 }
 
 .gv-results-actions {

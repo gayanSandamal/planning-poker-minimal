@@ -146,11 +146,16 @@ const reset = () => emit("reset");
 function getInitials(name: string): string {
   const s = (name || "").trim();
   if (!s) return "?";
-  const parts = s.split(/\s+/).filter(Boolean);
+  // Letters and digits only, so "Alex (test)" → "AT", not "A(".
+  const parts = s
+    .split(/\s+/)
+    .map((p) => p.replace(/[^\p{L}\p{N}]/gu, ""))
+    .filter(Boolean);
+  if (!parts.length) return s.slice(0, 1).toUpperCase();
   if (parts.length >= 2) {
     return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase().slice(0, 2);
   }
-  return s.slice(0, 2).toUpperCase();
+  return parts[0].slice(0, 2).toUpperCase();
 }
 
 function avatarColor(name: string): string {
